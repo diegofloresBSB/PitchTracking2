@@ -42,6 +42,20 @@ xcodebuild build -project PitchChartApp/PitchChartApp.xcodeproj \
   -scheme PitchChartApp -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
 ```
 
+## Themes
+
+Dark by default, with a light theme for charting outdoors — a dark screen in
+direct sun is close to unreadable. The sun/moon button in the tab row switches
+between them.
+
+Until you pick one, it follows the device setting and flips itself at sunset.
+Once you choose, that choice sticks for that device. The iOS app follows the
+same system setting, status bar included.
+
+Every colour is a CSS variable declared once per theme at the top of
+`index.html`; nothing below that block is hardcoded. The light theme uses its
+own darker pitch colours, since the neon set washes out on white.
+
 ## Data
 
 All charting data lives in `localStorage`, scoped to wherever it runs — the browser

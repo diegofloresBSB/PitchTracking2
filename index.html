@@ -16,7 +16,34 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0B1410;--panel:#12211B;--raise:#1A2E26;--line:#25402F;--chalk:#E8EDE7;--sage:#7C8C82;--dirt:#C98B5E;}
+/* Two themes. Dark is the default — night games, dugout, indoors.
+   Light exists because a dark screen in direct afternoon sun is unreadable.
+   Every colour the app draws is declared here twice; nothing is hardcoded
+   below this block, so switching themes is a single attribute flip. */
+:root{
+ color-scheme:dark;
+ --bg:#070F0C;--panel:#101E19;--raise:#1D362C;--line:#2E4E3B;
+ --chalk:#EAF0E9;--sage:#87998D;--dirt:#E8A05F;
+ /* pitch types */
+ --pt-FB:#FF5A47;--pt-SI:#FF8A3D;--pt-CT:#FFC53D;--pt-SL:#4EA8FF;
+ --pt-CB:#B98CFF;--pt-CH:#3FCF8E;--pt-SP:#5CE1D8;
+ /* semantic */
+ --ok:#3FCF8E;--caution:#FFC53D;--warn:#FF8A3D;--bad:#FF5A47;--warnline:#5c2f24;
+ /* strike zone + heat */
+ --zbg:#0E1B16;--zline:#21382C;--zinbg:#14251D;--zinline:#3A5C48;--zminline:#436B53;
+ --pipline:#2C4438;--heat:234,240,233;--oncontrast:#070F0C;
+}
+:root[data-theme="light"]{
+ color-scheme:light;
+ --bg:#F4F2ED;--panel:#FFFFFF;--raise:#EDEBE3;--line:#C8CCC2;
+ --chalk:#16211B;--sage:#5E6B62;--dirt:#A96A34;
+ /* darkened so they hold up against white in sunlight */
+ --pt-FB:#D93A28;--pt-SI:#C2620E;--pt-CT:#96700A;--pt-SL:#1E6FD9;
+ --pt-CB:#7B4FD9;--pt-CH:#128A55;--pt-SP:#0F7D77;
+ --ok:#128A55;--caution:#96700A;--warn:#B4530C;--bad:#D93A28;--warnline:#E0B48C;
+ --zbg:#FFFFFF;--zline:#D2D6CC;--zinbg:#E8EDE6;--zinline:#8FA396;--zminline:#8FA396;
+ --pipline:#C2C7BD;--heat:22,33,27;--oncontrast:#FFFFFF;
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;background:var(--bg);}
 body{color:var(--chalk);font-family:'Archivo',system-ui,-apple-system,sans-serif;min-height:100vh;padding:14px;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom,14px);}
@@ -29,6 +56,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .tabs{display:flex;gap:5px;flex-wrap:wrap;}
 .tab{padding:9px 15px;border-radius:4px;font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);background:var(--panel);}
 .tab.on{background:var(--chalk);color:var(--bg);}
+.tab.themed{font-size:15px;line-height:1;padding:7px 12px;}
+.tab.themed:hover{color:var(--chalk);}
 
 .gamebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:13px;}
 .gamesel{background:var(--panel);border:1px solid var(--line);color:var(--chalk);padding:9px 11px;border-radius:4px;font-size:13px;font-family:inherit;max-width:100%;}
@@ -65,14 +94,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .piprow{display:flex;align-items:center;gap:7px;}
 .piprow .lab{font-family:'Barlow Condensed';font-size:12px;letter-spacing:.14em;color:var(--sage);width:13px;}
 .pips{display:flex;gap:4px;}
-.pip{width:11px;height:11px;border-radius:50%;border:1.5px solid #2C4438;display:block;}
+.pip{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--pipline);display:block;}
 
 .staterow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;}
 .chip{padding:7px 11px;border-radius:4px;background:var(--raise);border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--sage);}
 .chip.on{background:var(--chalk);color:var(--bg);border-color:var(--chalk);}
 .chip.sm{font-size:11px;padding:6px 9px;}
-.chip.warn{border-color:#5c2f24;color:#FF8A3D;}
-.chip.warn:hover{border-color:#FF5A47;}
+.chip.warn{border-color:var(--warnline);color:var(--warn);}
+.chip.warn:hover{border-color:var(--bad);}
 .stepper{display:flex;align-items:center;background:var(--raise);border:1px solid var(--line);border-radius:4px;overflow:hidden;}
 .stepper b{font-family:'IBM Plex Mono';font-size:12.5px;padding:0 8px;min-width:52px;text-align:center;font-weight:600;}
 .stepper button{padding:7px 10px;font-size:14px;color:var(--sage);line-height:1;}
@@ -81,8 +110,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .zonewrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
 .zonelabels{display:flex;justify-content:space-between;width:100%;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.13em;color:var(--sage);}
 .zone{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;width:100%;max-width:250px;aspect-ratio:1;}
-.zcell{border:1px solid #21382C;border-radius:3px;background:#0E1B16;}
-.zcell.inzone{border-color:#3A5C48;background:#14251D;}
+.zcell{border:1px solid var(--zline);border-radius:3px;background:var(--zbg);}
+.zcell.inzone{border-color:var(--zinline);background:var(--zinbg);}
 .zcell.pick{background:var(--chalk);border-color:var(--chalk);}
 
 .typegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;}
@@ -90,12 +119,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .tbtn:active{transform:scale(.97);}
 .tbtn .tc{font-family:'Barlow Condensed';font-weight:700;font-size:22px;letter-spacing:.04em;line-height:1;}
 .tbtn .tl{font-size:10px;color:var(--sage);letter-spacing:.05em;margin-top:3px;}
-.tbtn.on .tl{color:rgba(11,20,16,.65);}
+.tbtn.on .tl{color:var(--oncontrast);opacity:.7;}
 
 .resgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(102px,1fr));gap:7px;}
 .rbtn{padding:15px 8px;border-radius:5px;background:var(--raise);border:1.5px solid var(--line);font-size:12.5px;font-weight:600;letter-spacing:.04em;}
 .rbtn:hover{border-color:var(--sage);}
-.rbtn.armed{border-color:var(--dirt);color:#fff;}
+.rbtn.armed{border-color:var(--dirt);color:var(--chalk);}
 .rbtn[disabled]{opacity:.32;cursor:not-allowed;}
 .rbtn.sel{background:var(--chalk);color:var(--bg);border-color:var(--chalk);}
 
@@ -144,8 +173,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .loccard{background:var(--raise);border-radius:5px;padding:11px;display:flex;flex-direction:column;align-items:center;gap:7px;}
 .loccard .lt{font-family:'Barlow Condensed';font-weight:700;font-size:15px;letter-spacing:.05em;}
 .minizone{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:92px;height:92px;}
-.mzcell{border:1px solid #21382C;border-radius:2px;}
-.mzcell.mzin{border-color:#436B53;}
+.mzcell{border:1px solid var(--zline);border-radius:2px;}
+.mzcell.mzin{border-color:var(--zminline);}
 
 .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:8px;}
 .stat{background:var(--raise);border-radius:5px;padding:11px;}
@@ -188,35 +217,48 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .lrow .sb{color:var(--sage);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border:1px solid var(--line);border-radius:3px;}
 .lrow .sb:hover{color:var(--chalk);border-color:var(--sage);}
 .lrow .x{color:var(--sage);font-size:15px;line-height:1;padding:2px 6px;}
-.lrow .x:hover{color:#FF5A47;}
+.lrow .x:hover{color:var(--bad);}
 .note{font-size:11.5px;color:var(--sage);line-height:1.55;margin:8px 0 0;}
 
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--chalk);color:var(--bg);padding:11px 20px;border-radius:5px;font-size:12.5px;font-weight:600;z-index:50;max-width:90vw;text-align:center;}
 .veloin{background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:7px 9px;color:var(--chalk);font-family:'IBM Plex Mono';font-size:12.5px;width:72px;}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 </style>
+<script>
+/* Runs before first paint so the page never flashes the wrong theme.
+   Saved choice wins; otherwise follow whatever the device is set to. */
+(function(){
+ var t=null;
+ try{t=localStorage.getItem("pitchchart:theme");}catch(e){}
+ if(t!=="light"&&t!=="dark")
+  t=(window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches)?"light":"dark";
+ document.documentElement.setAttribute("data-theme",t);
+ var m=document.querySelector('meta[name="theme-color"]');
+ if(m)m.setAttribute("content",t==="light"?"#F4F2ED":"#070F0C");
+})();
+</script>
 </head>
 <body>
 <div id="app"></div>
 <script>
 /* ================= config ================= */
 var PITCH_TYPES=[
- {code:"FB",label:"Fastball",color:"#FF5A47"},
- {code:"SI",label:"Sinker",color:"#FF8A3D"},
- {code:"CT",label:"Cutter",color:"#FFC53D"},
- {code:"SL",label:"Slider",color:"#4EA8FF"},
- {code:"CB",label:"Curve",color:"#B98CFF"},
- {code:"CH",label:"Change",color:"#3FCF8E"},
- {code:"SP",label:"Split",color:"#5CE1D8"}];
+ {code:"FB",label:"Fastball",color:"var(--pt-FB)"},
+ {code:"SI",label:"Sinker",color:"var(--pt-SI)"},
+ {code:"CT",label:"Cutter",color:"var(--pt-CT)"},
+ {code:"SL",label:"Slider",color:"var(--pt-SL)"},
+ {code:"CB",label:"Curve",color:"var(--pt-CB)"},
+ {code:"CH",label:"Change",color:"var(--pt-CH)"},
+ {code:"SP",label:"Split",color:"var(--pt-SP)"}];
 var TYPE_MAP={};PITCH_TYPES.forEach(function(t){TYPE_MAP[t.code]=t;});
-function colorOf(c){return TYPE_MAP[c]?TYPE_MAP[c].color:"#7C8C82";}
+function colorOf(c){return TYPE_MAP[c]?TYPE_MAP[c].color:"var(--sage)";}
 
 var RESULTS=[{code:"B",label:"Ball"},{code:"CS",label:"Called strike"},{code:"SS",label:"Swing &amp; miss"},
  {code:"F",label:"Foul"},{code:"IP",label:"In play"},{code:"HBP",label:"HBP"}];
 var RES_LABEL={};RESULTS.forEach(function(r){RES_LABEL[r.code]=r.label;});
 var OUTCOMES=[{code:"OUT",label:"Out"},{code:"1B",label:"Single"},{code:"2B",label:"Double"},
  {code:"3B",label:"Triple"},{code:"HR",label:"Home run"},{code:"ROE",label:"Error / FC"}];
-var CONTACT=[{code:"hard",label:"Hard",color:"#3FCF8E"},{code:"med",label:"Medium",color:"#FFC53D"},{code:"weak",label:"Weak",color:"#FF5A47"}];
+var CONTACT=[{code:"hard",label:"Hard",color:"var(--ok)"},{code:"med",label:"Medium",color:"var(--caution)"},{code:"weak",label:"Weak",color:"var(--bad)"}];
 var IN_ZONE=[6,7,8,11,12,13,16,17,18];
 function inZone(z){return IN_ZONE.indexOf(z)>=0;}
 var COUNTS=["0-0","0-1","0-2","1-0","1-1","1-2","2-0","2-1","2-2","3-0","3-1","3-2"];
@@ -263,6 +305,30 @@ function tells(){var g=game();return g&&g.meta.tells?g.meta.tells:[];}
 function tipsOn(){var g=game();return !!(g&&g.meta.tipsOn);}
 function batter(){var r=roster();return r.length?r[S.live.bIdx%r.length]:null;}
 function arm(){var a=arms();return a.length?a[Math.min(S.live.pIdx,a.length-1)]:null;}
+
+/* ================= theme ================= */
+/* Follows the system by default. Once you pick one it sticks, per device —
+   a coach who set light for a day game shouldn't get flipped back at dusk. */
+var THEME_KEY="pitchchart:theme";
+function theme(){return document.documentElement.getAttribute("data-theme")||"dark";}
+function applyTheme(t){
+ document.documentElement.setAttribute("data-theme",t);
+ var m=document.querySelector('meta[name="theme-color"]');
+ if(m)m.setAttribute("content",t==="light"?"#F4F2ED":"#070F0C");}
+function toggleTheme(){
+ var t=theme()==="light"?"dark":"light";
+ applyTheme(t);
+ try{localStorage.setItem(THEME_KEY,t);}catch(e){}
+ render();}
+/* Until you pick a side, track the device — so it flips itself at sunset. */
+if(window.matchMedia){
+ var mq=window.matchMedia("(prefers-color-scheme: light)");
+ var onSys=function(e){
+  var saved=null;try{saved=localStorage.getItem(THEME_KEY);}catch(x){}
+  if(saved==="light"||saved==="dark")return;
+  applyTheme(e.matches?"light":"dark");render();};
+ if(mq.addEventListener)mq.addEventListener("change",onSys);
+ else if(mq.addListener)mq.addListener(onSys);}
 
 var toastTimer=null;
 function flash(m){S.toast=m;render();clearTimeout(toastTimer);toastTimer=setTimeout(function(){S.toast="";render();},2200);}
@@ -536,11 +602,11 @@ function miniZone(ps){
  var c=[],i;for(i=0;i<25;i++)c[i]=0;
  ps.forEach(function(p){if(p.zone!=null)c[p.zone]++;});
  var max=Math.max.apply(null,[1].concat(c));
- var h="";for(i=0;i<25;i++)h+='<div class="mzcell'+(inZone(i)?" mzin":"")+'" style="'+(c[i]?"background:rgba(232,237,231,"+(0.12+0.78*(c[i]/max)).toFixed(2)+")":"")+'"></div>';
+ var h="";for(i=0;i<25;i++)h+='<div class="mzcell'+(inZone(i)?" mzin":"")+'" style="'+(c[i]?"background:rgba(var(--heat),"+(0.12+0.78*(c[i]/max)).toFixed(2)+")":"")+'"></div>';
  return '<div class="minizone">'+h+'</div>';}
 
 function stat(label,value,sub,warn){
- return '<div class="stat"><div class="sv"'+(warn?' style="color:#FF8A3D"':'')+'>'+value+'</div><div class="sl">'+label+'</div>'+(sub?'<div class="ss">'+sub+'</div>':'')+'</div>';}
+ return '<div class="stat"><div class="sv"'+(warn?' style="color:var(--warn)"':'')+'>'+value+'</div><div class="sl">'+label+'</div>'+(sub?'<div class="ss">'+sub+'</div>':'')+'</div>';}
 
 function pitcherFilterRow(){
  var a=arms();if(a.length<2&&S.f.scope==="game")return "";
@@ -596,9 +662,9 @@ function viewChart(){
     '<p class="note">Takes over the slot from here on. '+esc(b.name)+'\'s at-bats so far stay under his own name.</p></div>';}}
 
  h+='<div class="board"><div class="bigcount">'+L.balls+'&ndash;'+L.strikes+'</div><div class="pipcol">'+
-  '<div class="piprow"><span class="lab">B</span>'+pips(L.balls,3,"#3FCF8E")+'</div>'+
-  '<div class="piprow"><span class="lab">S</span>'+pips(L.strikes,2,"#FFC53D")+'</div>'+
-  '<div class="piprow"><span class="lab">O</span>'+pips(L.outs,2,"#FF5A47")+'</div></div></div>';
+  '<div class="piprow"><span class="lab">B</span>'+pips(L.balls,3,"var(--ok)")+'</div>'+
+  '<div class="piprow"><span class="lab">S</span>'+pips(L.strikes,2,"var(--caution)")+'</div>'+
+  '<div class="piprow"><span class="lab">O</span>'+pips(L.outs,2,"var(--bad)")+'</div></div></div>';
  h+='<div class="staterow">'+
   '<div class="stepper"><button data-a="inn" data-v="-1">&minus;</button><b>INN '+L.inning+'</b><button data-a="inn" data-v="1">+</button></div>'+
   '<div class="stepper"><button data-a="outs" data-v="-1">&minus;</button><b>'+L.outs+' OUT</b><button data-a="outs" data-v="1">+</button></div></div>';
@@ -620,7 +686,7 @@ function viewChart(){
 
  h+='<div class="col"><div class="panel"><h3 class="ptitle">1 &middot; Pitch type</h3><div class="typegrid">'+
   PITCH_TYPES.map(function(t){var on=S.sel.type===t.code;
-   return '<button class="tbtn'+(on?" on":"")+'" style="'+(on?"background:"+t.color+";border-color:"+t.color+";color:#0B1410":"border-color:"+t.color+"55")+'" data-a="type" data-v="'+t.code+'">'+
+   return '<button class="tbtn'+(on?" on":"")+'" style="'+(on?"background:"+t.color+";border-color:"+t.color+";color:var(--oncontrast)":"border-color:color-mix(in srgb,"+t.color+" 40%,transparent)")+'" data-a="type" data-v="'+t.code+'">'+
     '<div class="tc"'+(on?"":' style="color:'+t.color+'"')+'>'+t.code+'</div><div class="tl">'+t.label+'</div></button>';}).join("")+
   '</div></div>';
 
@@ -677,7 +743,7 @@ function viewPitcher(){
    '<em>'+k.n+' of '+k.total+' &middot; '+(k.loc?"otherwise "+k.base+"%":"normally "+k.base+"% "+lbl.toLowerCase())+
    ' &middot; <span style="color:var(--dirt)">+'+Math.round(k.lift)+'</span>'+(k.thin?' &middot; thin sample':'')+'</em></div></div>';}).join("")+'</div>';
  if(S.f.pitcher==="all"&&arms().length>1)
-  h+='<p class="note danger" style="color:#FF8A3D">You\'re looking at '+arms().length+' pitchers blended together. Pick one above.</p>';
+  h+='<p class="note danger" style="color:var(--warn)">You\'re looking at '+arms().length+' pitchers blended together. Pick one above.</p>';
  h+='</div>';
 
  if(tipsOn()){
@@ -761,12 +827,12 @@ function viewHitters(){
     return '<tr><td class="nm">'+esc(r.name)+(r.seen<10?' <span style="color:var(--sage);font-weight:400;font-size:10.5px">thin</span>':'')+'</td>'+
      '<td>'+r.seen+'</td>'+
      '<td'+(r.seen>=10?'':dim)+'>'+(r.seen>=10?r.swingPct+"%":r.swings+"/"+r.seen)+'</td>'+
-     '<td'+(r.swings>=4?(r.whiffPct>=35?' style="color:#FF8A3D"':''):dim)+'>'+(r.swings>=4?r.whiffPct+"%":"&mdash;")+'</td>'+
-     '<td'+(r.ozSeen>=4?(r.chasePct>=40?' style="color:#FF8A3D"':''):dim)+'>'+(r.ozSeen>=4?r.chasePct+"%":"&mdash;")+'</td>'+
+     '<td'+(r.swings>=4?(r.whiffPct>=35?' style="color:var(--warn)"':''):dim)+'>'+(r.swings>=4?r.whiffPct+"%":"&mdash;")+'</td>'+
+     '<td'+(r.ozSeen>=4?(r.chasePct>=40?' style="color:var(--warn)"':''):dim)+'>'+(r.ozSeen>=4?r.chasePct+"%":"&mdash;")+'</td>'+
      '<td'+(r.bip>=3?'':dim)+'>'+(r.bip>=3?r.hardPct+"%":"&mdash;")+'</td><td>'+r.hits+'</td>'+
      '<td class="txt">'+(worst&&worst.s.whiffPct>=40?'<span style="color:'+worst.t.color+'">'+worst.t.label+' &middot; '+worst.s.whiffPct+'% whiff</span>':'<span style="color:var(--sage)">&mdash;</span>')+'</td></tr>';}).join("")+
    '</tbody></table></div>';
-  if(thinAny)h+='<p class="note danger" style="color:#FF8A3D">Rows marked thin haven\'t seen enough pitches for the rates to mean anything. Switch to "All games, this pitcher" or wait for the season to fill in.</p>';}
+  if(thinAny)h+='<p class="note danger" style="color:var(--warn)">Rows marked thin haven\'t seen enough pitches for the rates to mean anything. Switch to "All games, this pitcher" or wait for the season to fill in.</p>';}
  h+='<p class="note">Whiff is per swing, chase is swings at pitches outside the zone. A dash means the sample is too small to divide — it fills in as the count grows. A pinch hitter shows as his own row; the guy he replaced keeps his earlier at-bats. "Trouble pitch" needs four swings at that pitch and 40%+ misses, so treat it as a place to look, not a verdict.</p></div>';
  return h;}
 
@@ -844,7 +910,9 @@ function render(){
  var h='<div class="topbar"><div class="brand">Pitch Chart<small>'+
   (g?esc((a?a.name:g.meta.pitcher)+" · "+(a?a.hand:g.meta.hand)+"HP · "+g.meta.opponent):"No game loaded")+'</small></div><div class="tabs">'+
   [["chart","Chart"],["tend","Pitcher"],["hit","Our hitters"],["setup","Games"]].map(function(t){
-   return '<button class="tab'+(S.tab===t[0]?" on":"")+'" data-a="tab" data-v="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div></div>';
+   return '<button class="tab'+(S.tab===t[0]?" on":"")+'" data-a="tab" data-v="'+t[0]+'">'+t[1]+'</button>';}).join("")+
+  '<button class="tab themed" data-a="theme" aria-label="Switch to '+(theme()==="light"?"dark":"light")+' theme" title="Switch to '+(theme()==="light"?"dark":"light")+' theme">'+
+   (theme()==="light"?"&#9789;":"&#9788;")+'</button></div></div>';
 
  if(S.tab==="setup")h+=viewSetup();
  else if(!g)h+='<div class="empty">No game loaded yet.<br>Open the Games tab to start one.</div>';
@@ -863,7 +931,8 @@ function setPath(path,val){
 document.addEventListener("click",function(e){
  var el=e.target.closest("[data-a]");if(!el)return;
  var a=el.getAttribute("data-a"),v=el.getAttribute("data-v");
- if(a==="tab")S.tab=v;
+ if(a==="theme"){toggleTheme();return;}
+ else if(a==="tab")S.tab=v;
  else if(a==="type")S.sel.type=v;
  else if(a==="zone")S.sel.zone=+v;
  else if(a==="res"){if(!(S.sel.type&&S.sel.zone!=null))return;
