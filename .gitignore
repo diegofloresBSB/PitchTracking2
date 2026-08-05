@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode — user-specific state, not shared
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.xcworkspace/xcshareddata/swiftpm/configuration
+
+# Local tool settings
+**/.claude/settings.local.json
+
+# Archives
+*.zip
