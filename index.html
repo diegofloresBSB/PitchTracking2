@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B1410" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Pitch Chart" />
+<meta name="description" content="Live pitch charting and opponent tendency tool." />
+<title>Pitch Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0B1410;--panel:#12211B;--raise:#1A2E26;--line:#25402F;--chalk:#E8EDE7;--sage:#7C8C82;--dirt:#C98B5E;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);}
+body{color:var(--chalk);font-family:'Archivo',system-ui,-apple-system,sans-serif;min-height:100vh;padding:14px;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom,14px);}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--dirt);outline-offset:2px;}
+
+.topbar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:13px;}
+.brand{font-family:'Barlow Condensed';font-weight:700;font-size:27px;letter-spacing:.06em;text-transform:uppercase;line-height:1;}
+.brand small{display:block;font-family:'Archivo';font-size:10.5px;font-weight:500;letter-spacing:.17em;color:var(--sage);margin-top:4px;}
+.tabs{display:flex;gap:5px;flex-wrap:wrap;}
+.tab{padding:9px 15px;border-radius:4px;font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--sage);background:var(--panel);}
+.tab.on{background:var(--chalk);color:var(--bg);}
+
+.gamebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:13px;}
+.gamesel{background:var(--panel);border:1px solid var(--line);color:var(--chalk);padding:9px 11px;border-radius:4px;font-size:13px;font-family:inherit;max-width:100%;}
+.mini{padding:9px 13px;border-radius:4px;background:var(--panel);border:1px solid var(--line);font-size:11.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--sage);}
+.mini:hover{color:var(--chalk);border-color:var(--sage);}
+
+.grid{display:grid;grid-template-columns:300px 1fr;gap:13px;align-items:start;}
+@media(max-width:820px){.grid{grid-template-columns:1fr;}}
+.col{display:flex;flex-direction:column;gap:13px;}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;}
+.ptitle{font-family:'Barlow Condensed';font-weight:600;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--sage);margin:0 0 11px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.ptitle .aside{font-family:'Archivo';font-size:10px;letter-spacing:.08em;text-transform:none;opacity:.75;}
+
+.bar{display:flex;align-items:center;gap:8px;background:var(--raise);border-radius:5px;padding:8px 9px;margin-bottom:9px;}
+.bar .who{flex:1;min-width:0;}
+.bar .slot{font-family:'IBM Plex Mono';font-size:11px;color:var(--sage);}
+.bar .nm{font-family:'Barlow Condensed';font-weight:700;font-size:19px;letter-spacing:.03em;text-transform:uppercase;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar .nav{padding:7px 11px;border-radius:4px;background:var(--panel);color:var(--sage);font-size:14px;line-height:1;}
+.bar .nav:hover{color:var(--chalk);}
+.bar.arm{border-left:3px solid var(--dirt);}
+.bar .tiny{padding:6px 9px;border-radius:4px;background:var(--panel);color:var(--sage);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+.bar .tiny:hover{color:var(--chalk);}
+
+.subpanel{background:var(--raise);border:1px solid var(--dirt);border-radius:5px;padding:11px;margin-bottom:9px;}
+.subpanel .sl{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);margin-bottom:7px;}
+.subpanel input{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px;color:var(--chalk);font-family:inherit;font-size:13.5px;width:100%;margin-bottom:7px;}
+.subpanel input:focus{outline:none;border-color:var(--dirt);}
+.rowbtns{display:flex;gap:6px;flex-wrap:wrap;}
+
+.board{display:flex;gap:14px;align-items:center;margin-bottom:11px;}
+.bigcount{font-family:'IBM Plex Mono';font-weight:600;font-size:44px;line-height:.9;letter-spacing:-.02em;}
+.pipcol{display:flex;flex-direction:column;gap:5px;}
+.piprow{display:flex;align-items:center;gap:7px;}
+.piprow .lab{font-family:'Barlow Condensed';font-size:12px;letter-spacing:.14em;color:var(--sage);width:13px;}
+.pips{display:flex;gap:4px;}
+.pip{width:11px;height:11px;border-radius:50%;border:1.5px solid #2C4438;display:block;}
+
+.staterow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;}
+.chip{padding:7px 11px;border-radius:4px;background:var(--raise);border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--sage);}
+.chip.on{background:var(--chalk);color:var(--bg);border-color:var(--chalk);}
+.chip.sm{font-size:11px;padding:6px 9px;}
+.chip.warn{border-color:#5c2f24;color:#FF8A3D;}
+.chip.warn:hover{border-color:#FF5A47;}
+.stepper{display:flex;align-items:center;background:var(--raise);border:1px solid var(--line);border-radius:4px;overflow:hidden;}
+.stepper b{font-family:'IBM Plex Mono';font-size:12.5px;padding:0 8px;min-width:52px;text-align:center;font-weight:600;}
+.stepper button{padding:7px 10px;font-size:14px;color:var(--sage);line-height:1;}
+.stepper button:hover{color:var(--chalk);background:var(--line);}
+
+.zonewrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.zonelabels{display:flex;justify-content:space-between;width:100%;font-family:'Barlow Condensed';font-size:11px;letter-spacing:.13em;color:var(--sage);}
+.zone{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;width:100%;max-width:250px;aspect-ratio:1;}
+.zcell{border:1px solid #21382C;border-radius:3px;background:#0E1B16;}
+.zcell.inzone{border-color:#3A5C48;background:#14251D;}
+.zcell.pick{background:var(--chalk);border-color:var(--chalk);}
+
+.typegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;}
+.tbtn{padding:13px 8px;border-radius:5px;background:var(--raise);border:1.5px solid var(--line);text-align:center;}
+.tbtn:active{transform:scale(.97);}
+.tbtn .tc{font-family:'Barlow Condensed';font-weight:700;font-size:22px;letter-spacing:.04em;line-height:1;}
+.tbtn .tl{font-size:10px;color:var(--sage);letter-spacing:.05em;margin-top:3px;}
+.tbtn.on .tl{color:rgba(11,20,16,.65);}
+
+.resgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(102px,1fr));gap:7px;}
+.rbtn{padding:15px 8px;border-radius:5px;background:var(--raise);border:1.5px solid var(--line);font-size:12.5px;font-weight:600;letter-spacing:.04em;}
+.rbtn:hover{border-color:var(--sage);}
+.rbtn.armed{border-color:var(--dirt);color:#fff;}
+.rbtn[disabled]{opacity:.32;cursor:not-allowed;}
+.rbtn.sel{background:var(--chalk);color:var(--bg);border-color:var(--chalk);}
+
+.hint{font-size:11.5px;color:var(--sage);letter-spacing:.04em;margin:0 0 9px;}
+.hint b{color:var(--chalk);font-weight:600;}
+
+.tellbank{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:9px 0 0;margin-top:10px;border-top:1px dashed var(--line);}
+.tblab{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);}
+
+.log{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;}
+.logrow{display:flex;align-items:center;gap:9px;font-size:12px;padding:6px 8px;background:var(--raise);border-radius:4px;width:100%;text-align:left;}
+.logrow .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+.logrow .cnt{font-family:'IBM Plex Mono';font-size:11.5px;color:var(--sage);}
+.logrow .res{margin-left:auto;color:var(--sage);font-size:11px;text-transform:uppercase;letter-spacing:.06em;}
+.logrow .who2{color:var(--sage);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px;}
+
+.keylist{display:flex;flex-direction:column;gap:8px;}
+.key{display:flex;gap:11px;align-items:center;background:var(--raise);border-left:3px solid;border-radius:0 5px 5px 0;padding:11px 13px;}
+.key .kpct{font-family:'IBM Plex Mono';font-weight:600;font-size:21px;min-width:52px;}
+.key .ktxt{font-size:13px;line-height:1.4;}
+.key .ktxt em{font-style:normal;color:var(--sage);font-size:11px;display:block;margin-top:2px;letter-spacing:.04em;}
+
+.mixbar{display:flex;height:14px;border-radius:3px;overflow:hidden;background:var(--raise);}
+.mixseg{height:100%;}
+.mixlegend{display:flex;flex-wrap:wrap;gap:11px;margin-top:9px;font-size:11.5px;color:var(--sage);}
+.legitem{display:flex;align-items:center;gap:5px;}
+.legitem i{width:9px;height:9px;border-radius:2px;display:block;}
+.legitem em{font-style:normal;opacity:.6;}
+
+.countgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;}
+.cbox{background:var(--raise);border-radius:5px;padding:10px;}
+.cbox .cl{font-family:'IBM Plex Mono';font-size:14px;font-weight:600;margin-bottom:7px;}
+.cbox .cn{font-size:10.5px;color:var(--sage);float:right;font-family:'Archivo';font-weight:500;}
+.cbox .row{display:flex;justify-content:space-between;font-size:11.5px;margin-top:3px;}
+.cbox .row span:first-child{display:flex;align-items:center;gap:5px;}
+.cbox .row i{width:7px;height:7px;border-radius:2px;display:block;}
+.cbox.dim{opacity:.4;}
+
+.seqrow{display:flex;align-items:center;gap:10px;background:var(--raise);border-radius:5px;padding:11px 13px;flex-wrap:wrap;}
+.arrow{color:var(--sage);font-size:15px;}
+.tag{font-family:'Barlow Condensed';font-weight:700;font-size:16px;padding:4px 9px;border-radius:3px;color:var(--bg);letter-spacing:.03em;}
+.seqrow .meta{margin-left:auto;font-size:11px;color:var(--sage);letter-spacing:.05em;}
+.mono{font-family:'IBM Plex Mono';font-size:14px;font-weight:600;}
+
+.loczone{display:flex;gap:13px;flex-wrap:wrap;}
+.loccard{background:var(--raise);border-radius:5px;padding:11px;display:flex;flex-direction:column;align-items:center;gap:7px;}
+.loccard .lt{font-family:'Barlow Condensed';font-weight:700;font-size:15px;letter-spacing:.05em;}
+.minizone{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:92px;height:92px;}
+.mzcell{border:1px solid #21382C;border-radius:2px;}
+.mzcell.mzin{border-color:#436B53;}
+
+.statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:8px;}
+.stat{background:var(--raise);border-radius:5px;padding:11px;}
+.stat .sv{font-family:'IBM Plex Mono';font-weight:600;font-size:22px;line-height:1;}
+.stat .sl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--sage);margin-top:6px;}
+.stat .ss{font-size:10.5px;color:var(--sage);opacity:.7;margin-top:2px;}
+
+.htable{width:100%;border-collapse:collapse;font-size:12.5px;}
+.htable th{text-align:left;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--sage);font-weight:600;padding:0 8px 8px;}
+.htable td{padding:9px 8px;border-top:1px solid var(--line);font-family:'IBM Plex Mono';}
+.htable td.nm{font-family:'Archivo';font-weight:600;}
+.htable td.txt{font-family:'Archivo';font-size:12px;}
+.tblwrap{overflow-x:auto;}
+
+.vscard{background:var(--raise);border-radius:5px;padding:11px;min-width:150px;}
+.vscard .vt{font-family:'Barlow Condensed';font-weight:700;font-size:16px;margin-bottom:7px;}
+.vsrow{display:flex;justify-content:space-between;font-size:11.5px;color:var(--sage);margin-top:4px;}
+.vsrow b{color:var(--chalk);font-family:'IBM Plex Mono';font-weight:600;}
+
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;align-items:center;}
+.flabel{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);margin-right:2px;}
+.gap{width:10px;}
+.sec{margin-bottom:14px;}
+.empty{text-align:center;padding:34px 18px;color:var(--sage);font-size:13px;line-height:1.6;}
+.empty-inline{color:var(--sage);font-size:12px;}
+
+.setup{max-width:560px;margin:22px auto;}
+.frow{display:flex;gap:9px;margin-bottom:9px;flex-wrap:wrap;align-items:flex-end;}
+.field{flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);font-weight:600;}
+.field input{background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:11px;color:var(--chalk);font-family:inherit;font-size:14px;width:100%;}
+.field input:focus{outline:none;border-color:var(--dirt);}
+.go{width:100%;padding:14px;border-radius:5px;background:var(--chalk);color:var(--bg);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin-top:5px;}
+.lineup{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.lrow{display:flex;align-items:center;gap:7px;background:var(--raise);border-radius:4px;padding:8px 10px;font-size:13px;}
+.lrow .ln{font-family:'IBM Plex Mono';color:var(--sage);font-size:11.5px;min-width:14px;}
+.lrow .nmx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lrow .mv{color:var(--sage);font-size:11px;padding:3px 5px;line-height:1;}
+.lrow .mv:hover{color:var(--chalk);}
+.lrow .sb{color:var(--sage);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;border:1px solid var(--line);border-radius:3px;}
+.lrow .sb:hover{color:var(--chalk);border-color:var(--sage);}
+.lrow .x{color:var(--sage);font-size:15px;line-height:1;padding:2px 6px;}
+.lrow .x:hover{color:#FF5A47;}
+.note{font-size:11.5px;color:var(--sage);line-height:1.55;margin:8px 0 0;}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--chalk);color:var(--bg);padding:11px 20px;border-radius:5px;font-size:12.5px;font-weight:600;z-index:50;max-width:90vw;text-align:center;}
+.veloin{background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:7px 9px;color:var(--chalk);font-family:'IBM Plex Mono';font-size:12.5px;width:72px;}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ================= config ================= */
+var PITCH_TYPES=[
+ {code:"FB",label:"Fastball",color:"#FF5A47"},
+ {code:"SI",label:"Sinker",color:"#FF8A3D"},
+ {code:"CT",label:"Cutter",color:"#FFC53D"},
+ {code:"SL",label:"Slider",color:"#4EA8FF"},
+ {code:"CB",label:"Curve",color:"#B98CFF"},
+ {code:"CH",label:"Change",color:"#3FCF8E"},
+ {code:"SP",label:"Split",color:"#5CE1D8"}];
+var TYPE_MAP={};PITCH_TYPES.forEach(function(t){TYPE_MAP[t.code]=t;});
+function colorOf(c){return TYPE_MAP[c]?TYPE_MAP[c].color:"#7C8C82";}
+
+var RESULTS=[{code:"B",label:"Ball"},{code:"CS",label:"Called strike"},{code:"SS",label:"Swing &amp; miss"},
+ {code:"F",label:"Foul"},{code:"IP",label:"In play"},{code:"HBP",label:"HBP"}];
+var RES_LABEL={};RESULTS.forEach(function(r){RES_LABEL[r.code]=r.label;});
+var OUTCOMES=[{code:"OUT",label:"Out"},{code:"1B",label:"Single"},{code:"2B",label:"Double"},
+ {code:"3B",label:"Triple"},{code:"HR",label:"Home run"},{code:"ROE",label:"Error / FC"}];
+var CONTACT=[{code:"hard",label:"Hard",color:"#3FCF8E"},{code:"med",label:"Medium",color:"#FFC53D"},{code:"weak",label:"Weak",color:"#FF5A47"}];
+var IN_ZONE=[6,7,8,11,12,13,16,17,18];
+function inZone(z){return IN_ZONE.indexOf(z)>=0;}
+var COUNTS=["0-0","0-1","0-2","1-0","1-1","1-2","2-0","2-1","2-2","3-0","3-1","3-2"];
+var STORE="pitchchart:v1";
+
+function isSwing(r){return r==="SS"||r==="F"||r==="IP";}
+function isStrikeRes(r){return r==="CS"||r==="SS"||r==="F";}
+function pc(a,b){return b?Math.round(a/b*100):0;}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m];});}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+
+/* ================= state ================= */
+var S={
+ games:[], activeId:null, tab:"chart", toast:"",
+ live:{inning:1,outs:0,balls:0,strikes:0,seq:1,hand:"R",r1:false,r2:false,r3:false,abId:1,bIdx:0,pIdx:0},
+ sel:{type:null,zone:null}, pendingIP:null, activeTells:[], history:[], velo:"",
+ f:{scope:"game",hand:"all",run:"all",pitcher:"all"},
+ form:{opponent:"",pitcher:"",hand:"R",catcher:"",date:new Date().toISOString().slice(0,10)},
+ newBat:{name:"",hand:"R"}, newTell:"",
+ subOpen:false, sub:{name:"",hand:"R"},
+ armOpen:false, newP:{name:"",hand:"R"}
+};
+
+function save(){try{localStorage.setItem(STORE,JSON.stringify({games:S.games,activeId:S.activeId}));}
+ catch(e){flash("Couldn't save — storage may be full or blocked");}}
+
+function migrate(g){
+ if(!g.meta.pitchers||!g.meta.pitchers.length)
+  g.meta.pitchers=[{id:"pp1",name:g.meta.pitcher,hand:g.meta.hand}];
+ g.pitches.forEach(function(p){
+  if(!p.pitcher){p.pitcher=g.meta.pitcher;p.phand=g.meta.hand;}});
+ return g;}
+
+function load(){try{var raw=localStorage.getItem(STORE);if(!raw)return;var d=JSON.parse(raw);
+ S.games=(d.games||[]).map(migrate);
+ S.activeId=d.activeId||(S.games[0]&&S.games[0].meta.id)||null;
+ var g=game();if(g)restoreLive(g);}catch(e){}}
+
+function game(){for(var i=0;i<S.games.length;i++)if(S.games[i].meta.id===S.activeId)return S.games[i];return null;}
+function pitches(){var g=game();return g?g.pitches:[];}
+function roster(){var g=game();return g&&g.meta.roster?g.meta.roster:[];}
+function arms(){var g=game();return g&&g.meta.pitchers?g.meta.pitchers:[];}
+function tells(){var g=game();return g&&g.meta.tells?g.meta.tells:[];}
+function tipsOn(){var g=game();return !!(g&&g.meta.tipsOn);}
+function batter(){var r=roster();return r.length?r[S.live.bIdx%r.length]:null;}
+function arm(){var a=arms();return a.length?a[Math.min(S.live.pIdx,a.length-1)]:null;}
+
+var toastTimer=null;
+function flash(m){S.toast=m;render();clearTimeout(toastTimer);toastTimer=setTimeout(function(){S.toast="";render();},2200);}
+
+/* ================= analysis ================= */
+function mix(ps){var c={};ps.forEach(function(p){c[p.type]=(c[p.type]||0)+1;});var tot=ps.length||1;
+ return Object.keys(c).map(function(k){return{code:k,n:c[k],pct:Math.round(c[k]/tot*100)};}).sort(function(a,b){return b.n-a.n;});}
+
+function buildKeys(ps){
+ var buckets=[
+  {label:"First pitch of the at-bat",t:function(p){return p.balls===0&&p.strikes===0;}},
+  {label:"With two strikes",t:function(p){return p.strikes===2;}},
+  {label:"Ahead in the count",t:function(p){return p.strikes>p.balls;}},
+  {label:"Behind in the count",t:function(p){return p.balls>p.strikes;}},
+  {label:"Runners on base",t:function(p){return p.r1||p.r2||p.r3;}},
+  {label:"Bases empty",t:function(p){return !p.r1&&!p.r2&&!p.r3;}},
+  {label:"vs. left-handed hitters",t:function(p){return p.hand==="L";}},
+  {label:"vs. right-handed hitters",t:function(p){return p.hand==="R";}}];
+ COUNTS.forEach(function(c){var a=c.split("-");
+  buckets.push({label:"On "+c,t:function(p){return p.balls===+a[0]&&p.strikes===+a[1];}});});
+ var keys=[];
+ buckets.forEach(function(bk){var set=ps.filter(bk.t);if(set.length<5)return;var m=mix(set);
+  if(!m.length||m[0].pct<65)return;
+  keys.push({label:bk.label,type:m[0].code,pct:m[0].pct,n:m[0].n,total:set.length,score:m[0].pct*Math.min(set.length,30)});});
+ PITCH_TYPES.forEach(function(t){
+  var set=ps.filter(function(p){return p.type===t.code&&p.zone!=null;});if(set.length<6)return;
+  var checks=[
+   {n:set.filter(function(p){return Math.floor(p.zone/5)>=3;}).length,txt:"finishes low or below the zone"},
+   {n:set.filter(function(p){return Math.floor(p.zone/5)<=1;}).length,txt:"lives up in the zone"},
+   {n:set.filter(function(p){return !inZone(p.zone);}).length,txt:"is out of the zone"}];
+  checks.forEach(function(c){var v=pc(c.n,set.length);if(v>=65)
+   keys.push({loc:true,text:v+"% of his "+t.label.toLowerCase()+"s "+c.txt,type:t.code,pct:v,n:c.n,total:set.length,score:v*Math.min(set.length,30)});});});
+ return keys.sort(function(a,b){return b.score-a.score;}).slice(0,8);}
+
+function buildSequences(ps){
+ var byAb={};ps.forEach(function(p){(byAb[p.abId]=byAb[p.abId]||[]).push(p);});
+ var map={};
+ Object.keys(byAb).forEach(function(k){var ab=byAb[k].slice().sort(function(a,b){return a.seq-b.seq;});
+  for(var i=1;i<ab.length;i++){var prev=ab[i-1];
+   if(prev.pitcher!==ab[i].pitcher)continue;
+   if(!isStrikeRes(prev.result)&&prev.result!=="B")continue;
+   var key=prev.type+"|"+(prev.result==="B"?"ball":"strike");
+   (map[key]=map[key]||[]).push(ab[i]);}});
+ return Object.keys(map).filter(function(k){return map[k].length>=4;}).map(function(k){
+  var a=k.split("|");var m=mix(map[k]);
+  return{prevType:a[0],prevRes:a[1],total:map[k].length,top:m[0]};})
+  .sort(function(a,b){return b.top.pct*b.total-a.top.pct*a.total;});}
+
+function split(ps){
+ var swings=ps.filter(function(p){return isSwing(p.result);});
+ var oz=ps.filter(function(p){return p.zone!=null&&!inZone(p.zone);});
+ var iz=ps.filter(function(p){return p.zone!=null&&inZone(p.zone);});
+ var bip=ps.filter(function(p){return p.result==="IP";});
+ return{seen:ps.length,swings:swings.length,swingPct:pc(swings.length,ps.length),
+  whiffPct:pc(ps.filter(function(p){return p.result==="SS";}).length,swings.length),
+  chasePct:pc(oz.filter(function(p){return isSwing(p.result);}).length,oz.length),ozSeen:oz.length,
+  takeStrikePct:pc(iz.filter(function(p){return p.result==="CS";}).length,iz.length),izSeen:iz.length,
+  bip:bip.length,hardPct:pc(bip.filter(function(p){return p.contact==="hard";}).length,bip.length),
+  hits:bip.filter(function(p){return["1B","2B","3B","HR"].indexOf(p.outcome)>=0;}).length};}
+
+function buildTells(ps,ts){
+ return ts.map(function(t){
+  var on=ps.filter(function(p){return(p.tells||[]).indexOf(t.id)>=0;});
+  var off=ps.filter(function(p){return(p.tells||[]).indexOf(t.id)<0;});
+  return{id:t.id,label:t.label,onN:on.length,onMix:mix(on),offMix:mix(off)};})
+  .filter(function(t){return t.onN>=3;});}
+
+function pool(){
+ var g=game();if(!g)return[];var base;
+ if(S.f.scope==="game")base=g.pitches;
+ else{base=[];S.games.forEach(function(gg){
+  base=base.concat(gg.pitches.map(function(p){var q=clone(p);q.abId=gg.meta.id+"-"+p.abId;return q;}));});}
+ return base.filter(function(p){
+  if(S.f.pitcher!=="all"&&p.pitcher!==S.f.pitcher)return false;
+  if(S.f.scope==="all"&&S.f.pitcher==="all")return false;
+  if(S.f.hand!=="all"&&p.hand!==S.f.hand)return false;
+  if(S.f.run==="on"&&!(p.r1||p.r2||p.r3))return false;
+  if(S.f.run==="empty"&&(p.r1||p.r2||p.r3))return false;
+  return true;});}
+
+/* ================= actions ================= */
+function createGame(){
+ if(!S.form.opponent.trim()||!S.form.pitcher.trim()){flash("Add an opponent and a starting pitcher");return;}
+ var id="g"+Date.now();
+ var rec={meta:{id:id,date:S.form.date,opponent:S.form.opponent.trim(),pitcher:S.form.pitcher.trim(),
+  hand:S.form.hand,catcher:S.form.catcher.trim(),roster:[],tells:[],tipsOn:false,
+  pitchers:[{id:"pp"+Date.now(),name:S.form.pitcher.trim(),hand:S.form.hand}]},pitches:[]};
+ S.games.unshift(rec);S.activeId=id;
+ S.live={inning:1,outs:0,balls:0,strikes:0,seq:1,hand:"R",r1:false,r2:false,r3:false,abId:1,bIdx:0,pIdx:0};
+ S.history=[];S.sel={type:null,zone:null};S.pendingIP=null;S.activeTells=[];
+ S.f.pitcher="all";S.subOpen=false;S.armOpen=false;
+ S.form={opponent:"",pitcher:"",hand:"R",catcher:"",date:new Date().toISOString().slice(0,10)};
+ save();flash("Game started — add your lineup below");}
+
+function restoreLive(g){
+ var last=g.pitches.length?g.pitches[g.pitches.length-1]:null;
+ var pIdx=0;
+ if(last)(g.meta.pitchers||[]).forEach(function(a,i){if(a.name===last.pitcher)pIdx=i;});
+ S.live=last?{inning:last.inning,outs:last.outs,balls:0,strikes:0,seq:1,hand:last.hand,
+   r1:last.r1,r2:last.r2,r3:last.r3,abId:last.abId+1,bIdx:(last.bIdx||0)+1,pIdx:pIdx}
+  :{inning:1,outs:0,balls:0,strikes:0,seq:1,hand:"R",r1:false,r2:false,r3:false,abId:1,bIdx:0,pIdx:0};}
+
+function switchGame(id){
+ S.activeId=id;var g=game();if(!g)return;
+ restoreLive(g);
+ S.history=[];S.sel={type:null,zone:null};S.pendingIP=null;S.activeTells=[];
+ S.f.pitcher="all";S.subOpen=false;S.armOpen=false;save();}
+
+function deleteGame(id){
+ var g=null;S.games.forEach(function(x){if(x.meta.id===id)g=x;});
+ if(!g)return;
+ if(!confirm("Delete "+g.meta.pitcher+" vs "+g.meta.opponent+" ("+g.pitches.length+" pitches)?\n\nThis can't be undone."))return;
+ S.games=S.games.filter(function(x){return x.meta.id!==id;});
+ if(S.activeId===id){S.activeId=S.games.length?S.games[0].meta.id:null;
+  var ng=game();if(ng)restoreLive(ng);}
+ save();flash("Game deleted");}
+
+function clearPitches(){
+ var g=game();if(!g)return;
+ if(!confirm("Erase all "+g.pitches.length+" pitches from this game?\n\nThe lineup and pitchers stay. This can't be undone."))return;
+ g.pitches=[];S.history=[];restoreLive(g);S.sel={type:null,zone:null};S.pendingIP=null;
+ save();flash("Pitches cleared");}
+
+function setBatter(i){var r=roster();if(!r.length)return;
+ var n=((i%r.length)+r.length)%r.length;S.live.bIdx=n;S.live.hand=r[n].hand;}
+
+function subHitter(){
+ var r=roster();if(!r.length||!S.sub.name.trim())return;
+ var i=S.live.bIdx%r.length;
+ r[i]={name:S.sub.name.trim(),hand:S.sub.hand};
+ S.live.hand=S.sub.hand;S.sub={name:"",hand:"R"};S.subOpen=false;save();
+ flash("Slot "+(i+1)+" is now "+r[i].name);}
+
+function subHitterAt(i){
+ var r=roster();var nm=prompt("Who's replacing "+r[i].name+" in slot "+(i+1)+"?");
+ if(!nm||!nm.trim())return;
+ var lr=confirm("Is "+nm.trim()+" a right-handed hitter?\n\nOK = right, Cancel = left");
+ r[i]={name:nm.trim(),hand:lr?"R":"L"};
+ if(S.live.bIdx%r.length===i)S.live.hand=r[i].hand;
+ save();flash("Slot "+(i+1)+" is now "+r[i].name);}
+
+function moveBat(i,d){
+ var r=roster();var j=i+d;if(j<0||j>=r.length)return;
+ var t=r[i];r[i]=r[j];r[j]=t;save();}
+
+function addArm(){
+ if(!S.newP.name.trim())return;
+ var g=game();var nm=S.newP.name.trim();
+ var existing=-1;g.meta.pitchers.forEach(function(a,i){if(a.name.toLowerCase()===nm.toLowerCase())existing=i;});
+ if(existing>=0){S.live.pIdx=existing;}
+ else{g.meta.pitchers.push({id:"pp"+Date.now(),name:nm,hand:S.newP.hand});
+  S.live.pIdx=g.meta.pitchers.length-1;}
+ S.f.pitcher=g.meta.pitchers[S.live.pIdx].name;
+ S.newP={name:"",hand:"R"};S.armOpen=false;save();
+ flash(nm+" is in. Tendency views now filtered to him.");}
+
+function pickArm(i){
+ var a=arms();if(!a[i])return;
+ S.live.pIdx=i;S.f.pitcher=a[i].name;S.armOpen=false;save();}
+
+function removeArm(id){
+ var g=game();
+ if(g.meta.pitchers.length<=1){flash("Keep at least one pitcher");return;}
+ var a=null;g.meta.pitchers.forEach(function(x){if(x.id===id)a=x;});
+ var thrown=g.pitches.filter(function(p){return p.pitcher===a.name;}).length;
+ if(thrown){flash(a.name+" has "+thrown+" pitches charted — can't remove him");return;}
+ g.meta.pitchers=g.meta.pitchers.filter(function(x){return x.id!==id;});
+ if(S.live.pIdx>=g.meta.pitchers.length)S.live.pIdx=g.meta.pitchers.length-1;
+ save();}
+
+function nextAbState(st){
+ var r=roster();var bi=r.length?(st.bIdx+1)%r.length:st.bIdx;
+ st.balls=0;st.strikes=0;st.seq=1;st.abId=st.abId+1;st.bIdx=bi;
+ if(r.length)st.hand=r[bi].hand;return st;}
+function addOut(st){var o=st.outs+1;
+ if(o>=3){st.outs=0;st.inning=st.inning+1;st.r1=false;st.r2=false;st.r3=false;}else st.outs=o;return st;}
+
+function commit(result,outcome,contact){
+ var g=game();if(!g){flash("Start a game first");return;}
+ var b=batter(),a=arm();
+ g.pitches.push({id:"p"+Date.now()+Math.random().toString(36).slice(2,6),
+  abId:S.live.abId,seq:S.live.seq,inning:S.live.inning,outs:S.live.outs,
+  balls:S.live.balls,strikes:S.live.strikes,hand:S.live.hand,
+  r1:S.live.r1,r2:S.live.r2,r3:S.live.r3,batter:b?b.name:null,bIdx:S.live.bIdx,
+  pitcher:a?a.name:g.meta.pitcher,phand:a?a.hand:g.meta.hand,
+  type:S.sel.type,zone:S.sel.zone,velo:S.velo?Number(S.velo):null,
+  result:result,outcome:outcome||null,contact:contact||null,
+  tells:tipsOn()?S.activeTells.slice():[]});
+
+ S.history.push(clone(S.live));
+ var n=clone(S.live);n.seq=n.seq+1;
+ if(result==="B"){n.balls++;if(n.balls>=4){n.r1=true;n=nextAbState(n);}}
+ else if(result==="CS"||result==="SS"){n.strikes++;if(n.strikes>=3){n=nextAbState(addOut(n));}}
+ else if(result==="F"){if(n.strikes<2)n.strikes++;}
+ else if(result==="HBP"){n.r1=true;n=nextAbState(n);}
+ else if(result==="IP"){if(outcome==="OUT")n=addOut(n);n=nextAbState(n);}
+ S.live=n;S.sel={type:null,zone:null};S.pendingIP=null;S.activeTells=[];save();}
+
+function undo(){var g=game();if(!g||!g.pitches.length)return;
+ g.pitches.pop();
+ if(S.history.length)S.live=S.history.pop();
+ S.sel={type:null,zone:null};S.pendingIP=null;save();flash("Last pitch removed");}
+
+function exportCsv(){
+ var g=game();if(!g||!g.pitches.length){flash("Nothing to export yet");return;}
+ var ts=tells();
+ var head="date,opponent,pitcher,pitcher_hand,inning,outs,balls,strikes,ab,pitch_in_ab,batter,batter_hand,r1,r2,r3,pitch_type,zone,in_zone,velo,result,outcome,contact,tells";
+ var rows=g.pitches.map(function(p){
+  var tl=(p.tells||[]).map(function(id){var f=ts.filter(function(t){return t.id===id;})[0];return f?f.label:"";}).join("|");
+  return[g.meta.date,g.meta.opponent,p.pitcher,p.phand,p.inning,p.outs,p.balls,p.strikes,p.abId,p.seq,
+   p.batter||"",p.hand,p.r1?1:0,p.r2?1:0,p.r3?1:0,p.type,p.zone,inZone(p.zone)?1:0,p.velo==null?"":p.velo,
+   p.result,p.outcome||"",p.contact||"",tl].join(",");});
+ var blob=new Blob([[head].concat(rows).join("\n")],{type:"text/csv"});
+ var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download=g.meta.pitcher.replace(/\s+/g,"_")+"_"+g.meta.date+".csv";
+ document.body.appendChild(a);a.click();document.body.removeChild(a);}
+
+function exportBackup(){
+ var blob=new Blob([JSON.stringify({games:S.games},null,1)],{type:"application/json"});
+ var a=document.createElement("a");a.href=URL.createObjectURL(blob);
+ a.download="pitchchart_backup_"+new Date().toISOString().slice(0,10)+".json";
+ document.body.appendChild(a);a.click();document.body.removeChild(a);}
+
+function importBackup(file){
+ var fr=new FileReader();
+ fr.onload=function(){try{var d=JSON.parse(fr.result);
+  if(!d.games||!d.games.length){flash("No games in that file");return;}
+  var have={};S.games.forEach(function(g){have[g.meta.id]=1;});
+  var added=0;d.games.forEach(function(g){if(!have[g.meta.id]){S.games.push(migrate(g));added++;}});
+  if(!S.activeId&&S.games.length)S.activeId=S.games[0].meta.id;
+  save();flash(added+" game"+(added===1?"":"s")+" imported");}
+  catch(e){flash("Couldn't read that file");}};
+ fr.readAsText(file);}
+
+/* ================= render helpers ================= */
+function pips(n,max,color){var h="";for(var i=0;i<max;i++)
+ h+='<span class="pip" style="'+(i<n?"background:"+color+";border-color:"+color:"")+'"></span>';
+ return '<div class="pips">'+h+'</div>';}
+
+function mixBar(d){
+ if(!d.length)return '<div class="empty-inline">No pitches yet</div>';
+ return '<div class="mixbar">'+d.map(function(x){return '<div class="mixseg" style="width:'+x.pct+'%;background:'+colorOf(x.code)+'"></div>';}).join("")+'</div>'+
+ '<div class="mixlegend">'+d.map(function(x){return '<span class="legitem"><i style="background:'+colorOf(x.code)+'"></i>'+x.code+' '+x.pct+'% <em>('+x.n+')</em></span>';}).join("")+'</div>';}
+
+function miniZone(ps){
+ var c=[],i;for(i=0;i<25;i++)c[i]=0;
+ ps.forEach(function(p){if(p.zone!=null)c[p.zone]++;});
+ var max=Math.max.apply(null,[1].concat(c));
+ var h="";for(i=0;i<25;i++)h+='<div class="mzcell'+(inZone(i)?" mzin":"")+'" style="'+(c[i]?"background:rgba(232,237,231,"+(0.12+0.78*(c[i]/max)).toFixed(2)+")":"")+'"></div>';
+ return '<div class="minizone">'+h+'</div>';}
+
+function stat(label,value,sub,warn){
+ return '<div class="stat"><div class="sv"'+(warn?' style="color:#FF8A3D"':'')+'>'+value+'</div><div class="sl">'+label+'</div>'+(sub?'<div class="ss">'+sub+'</div>':'')+'</div>';}
+
+function pitcherFilterRow(){
+ var a=arms();if(a.length<2&&S.f.scope==="game")return "";
+ return '<div class="filters"><span class="flabel">Pitcher</span>'+
+  (S.f.scope==="game"?'<button class="chip'+(S.f.pitcher==="all"?" on":"")+'" data-a="fpitch" data-v="all">All in this game</button>':"")+
+  a.map(function(x){return '<button class="chip'+(S.f.pitcher===x.name?" on":"")+'" data-a="fpitch" data-v="'+esc(x.name)+'">'+esc(x.name)+'</button>';}).join("")+'</div>';}
+
+/* ================= views ================= */
+function viewChart(){
+ var g=game(),ps=pitches(),r=roster(),b=batter(),a=arm(),L=S.live;
+ var ready=S.sel.type&&S.sel.zone!=null;
+ var h='<div class="gamebar">'+
+  '<select class="gamesel" data-sel="game">'+S.games.map(function(gg){
+   return '<option value="'+gg.meta.id+'"'+(gg.meta.id===S.activeId?" selected":"")+'>'+esc(gg.meta.date+" — "+gg.meta.pitcher+" vs "+gg.meta.opponent)+'</option>';}).join("")+'</select>'+
+  '<button class="mini" data-a="nextab">Next hitter</button>'+
+  '<button class="mini" data-a="undo">Undo pitch</button>'+
+  '<button class="mini" data-a="export">Export CSV</button>'+
+  '<span style="margin-left:auto;font-size:12px;color:var(--sage);font-family:\'IBM Plex Mono\'">'+ps.length+' charted</span></div>';
+
+ h+='<div class="grid"><div class="col">';
+
+ h+='<div class="panel"><h3 class="ptitle">Situation</h3>';
+
+ /* pitcher bar */
+ h+='<div class="bar arm"><div class="who"><div class="slot">On the mound &middot; '+(a?a.hand:"?")+'HP</div>'+
+  '<div class="nm">'+esc(a?a.name:"—")+'</div></div>'+
+  '<button class="tiny" data-a="armopen">Change</button></div>';
+
+ if(S.armOpen){
+  h+='<div class="subpanel"><div class="sl">Bring in a new pitcher</div>';
+  if(arms().length>1)h+='<div class="rowbtns" style="margin-bottom:8px">'+arms().map(function(x,i){
+   return '<button class="chip sm'+(i===L.pIdx?" on":"")+'" data-a="pickarm" data-v="'+i+'">'+esc(x.name)+'</button>';}).join("")+'</div>';
+  h+='<input placeholder="New pitcher\'s name" data-in="newP.name" data-enter="addarm" value="'+esc(S.newP.name)+'">'+
+   '<div class="rowbtns">'+["R","L"].map(function(x){
+    return '<button class="chip sm'+(S.newP.hand===x?" on":"")+'" data-a="newphand" data-v="'+x+'">'+x+'HP</button>';}).join("")+
+   '<button class="chip sm on" data-a="addarm">Bring him in</button>'+
+   '<button class="chip sm" data-a="armclose">Cancel</button></div>'+
+   '<p class="note">His pitches are tracked separately — the Pitcher and Our hitters tabs will switch to him.</p></div>';}
+
+ /* batter bar */
+ if(r.length){
+  h+='<div class="bar"><button class="nav" data-a="bat" data-v="-1" aria-label="Previous hitter">&lsaquo;</button>'+
+   '<div class="who"><div class="slot">'+((L.bIdx%r.length)+1)+' &middot; '+b.hand+'HH</div><div class="nm">'+esc(b.name)+'</div></div>'+
+   '<button class="tiny" data-a="subopen">Sub</button>'+
+   '<button class="nav" data-a="bat" data-v="1" aria-label="Next hitter">&rsaquo;</button></div>';
+  if(S.subOpen){
+   h+='<div class="subpanel"><div class="sl">Pinch hitter for slot '+((L.bIdx%r.length)+1)+' &mdash; '+esc(b.name)+'</div>'+
+    '<input placeholder="Who\'s hitting instead?" data-in="sub.name" data-enter="subhit" value="'+esc(S.sub.name)+'">'+
+    '<div class="rowbtns">'+["R","L"].map(function(x){
+     return '<button class="chip sm'+(S.sub.hand===x?" on":"")+'" data-a="subhand" data-v="'+x+'">'+x+'HH</button>';}).join("")+
+    '<button class="chip sm on" data-a="subhit">Sub in</button>'+
+    '<button class="chip sm" data-a="subclose">Cancel</button></div>'+
+    '<p class="note">Takes over the slot from here on. '+esc(b.name)+'\'s at-bats so far stay under his own name.</p></div>';}}
+
+ h+='<div class="board"><div class="bigcount">'+L.balls+'&ndash;'+L.strikes+'</div><div class="pipcol">'+
+  '<div class="piprow"><span class="lab">B</span>'+pips(L.balls,3,"#3FCF8E")+'</div>'+
+  '<div class="piprow"><span class="lab">S</span>'+pips(L.strikes,2,"#FFC53D")+'</div>'+
+  '<div class="piprow"><span class="lab">O</span>'+pips(L.outs,2,"#FF5A47")+'</div></div></div>';
+ h+='<div class="staterow">'+
+  '<div class="stepper"><button data-a="inn" data-v="-1">&minus;</button><b>INN '+L.inning+'</b><button data-a="inn" data-v="1">+</button></div>'+
+  '<div class="stepper"><button data-a="outs" data-v="-1">&minus;</button><b>'+L.outs+' OUT</b><button data-a="outs" data-v="1">+</button></div></div>';
+ h+='<div class="staterow">'+["R","L"].map(function(x){
+   return '<button class="chip'+(L.hand===x?" on":"")+'" data-a="hand" data-v="'+x+'">'+x+'HH</button>';}).join("")+
+  [["r1","1B"],["r2","2B"],["r3","3B"]].map(function(p){
+   return '<button class="chip'+(L[p[0]]?" on":"")+'" data-a="run" data-v="'+p[0]+'">'+p[1]+'</button>';}).join("")+'</div>';
+ h+='<div class="staterow" style="margin-bottom:0">'+
+  '<input class="veloin" placeholder="velo" inputmode="numeric" data-in="velo" value="'+esc(S.velo)+'">'+
+  '<button class="chip" data-a="resetcount">Reset count</button></div></div>';
+
+ h+='<div class="panel"><h3 class="ptitle">2 &middot; Where it finished</h3><div class="zonewrap">'+
+  '<div class="zonelabels"><span>3B SIDE</span><span>CATCHER\'S VIEW</span><span>1B SIDE</span></div><div class="zone">';
+ for(var i=0;i<25;i++){
+  var pick=S.sel.zone===i;
+  var st=pick&&S.sel.type?' style="background:'+colorOf(S.sel.type)+';border-color:'+colorOf(S.sel.type)+'"':"";
+  h+='<button class="zcell'+(inZone(i)?" inzone":"")+(pick?" pick":"")+'"'+st+' data-a="zone" data-v="'+i+'" aria-label="zone '+(i+1)+'"></button>';}
+ h+='</div></div></div></div>';
+
+ h+='<div class="col"><div class="panel"><h3 class="ptitle">1 &middot; Pitch type</h3><div class="typegrid">'+
+  PITCH_TYPES.map(function(t){var on=S.sel.type===t.code;
+   return '<button class="tbtn'+(on?" on":"")+'" style="'+(on?"background:"+t.color+";border-color:"+t.color+";color:#0B1410":"border-color:"+t.color+"55")+'" data-a="type" data-v="'+t.code+'">'+
+    '<div class="tc"'+(on?"":' style="color:'+t.color+'"')+'>'+t.code+'</div><div class="tl">'+t.label+'</div></button>';}).join("")+
+  '</div></div>';
+
+ if(S.pendingIP){
+  h+='<div class="panel" style="border-color:var(--dirt)"><h3 class="ptitle">Ball in play — how\'d it end?'+
+   '<button class="chip sm" data-a="ipcancel">Cancel</button></h3><p class="hint">Result</p><div class="resgrid" style="margin-bottom:11px">'+
+   OUTCOMES.map(function(o){return '<button class="rbtn'+(S.pendingIP.outcome===o.code?" sel":"")+'" data-a="ipout" data-v="'+o.code+'">'+o.label+'</button>';}).join("")+
+   '</div><p class="hint">Contact — saves the pitch</p><div class="resgrid">'+
+   CONTACT.map(function(c){return '<button class="rbtn" '+(S.pendingIP.outcome?'style="border-color:'+c.color+';color:'+c.color+'"':'disabled')+' data-a="ipcommit" data-v="'+c.code+'">'+c.label+'</button>';}).join("")+
+   '</div></div>';
+ }else{
+  h+='<div class="panel"><h3 class="ptitle">3 &middot; Result — saves the pitch</h3><p class="hint">'+
+   (ready?'Ready: <b>'+TYPE_MAP[S.sel.type].label+'</b> on <b>'+L.balls+'&ndash;'+L.strikes+'</b>'+(b?' to <b>'+esc(b.name)+'</b>':'')+'. Tap the result.'
+     :'Pick a <b>pitch type</b>, then tap <b>where it finished</b>.')+'</p><div class="resgrid">'+
+   RESULTS.map(function(x){return '<button class="rbtn'+(ready?" armed":"")+'"'+(ready?"":" disabled")+' data-a="res" data-v="'+x.code+'">'+x.label+'</button>';}).join("")+'</div>';
+  if(tipsOn()&&tells().length){
+   h+='<div class="tellbank"><span class="tblab">Tips seen</span>'+tells().map(function(t){
+    return '<button class="chip sm'+(S.activeTells.indexOf(t.id)>=0?" on":"")+'" data-a="tell" data-v="'+t.id+'">'+esc(t.label)+'</button>';}).join("")+'</div>';}
+  h+='</div>';}
+
+ h+='<div class="panel"><h3 class="ptitle">Recent pitches</h3>';
+ var recent=ps.slice(-12).reverse();
+ if(!recent.length)h+='<div class="empty-inline">Nothing charted yet.</div>';
+ else h+='<div class="log">'+recent.map(function(p){
+  return '<div class="logrow"><span class="dot" style="background:'+colorOf(p.type)+'"></span>'+
+   '<span style="font-weight:600;min-width:24px">'+p.type+'</span>'+
+   '<span class="cnt">'+p.balls+'&ndash;'+p.strikes+'</span>'+
+   (p.batter?'<span class="who2">'+esc(p.batter)+'</span>':'')+
+   '<span class="res">'+(p.outcome?p.outcome+(p.contact?" &middot; "+p.contact:""):RES_LABEL[p.result])+'</span></div>';}).join("")+'</div>';
+ h+='</div></div></div>';
+ return h;}
+
+function viewPitcher(){
+ var P=pool();
+ var h='<div class="filters">'+
+  '<button class="chip'+(S.f.scope==="game"?" on":"")+'" data-a="fscope" data-v="game">This game</button>'+
+  '<button class="chip'+(S.f.scope==="all"?" on":"")+'" data-a="fscope" data-v="all">All games, this pitcher</button><span class="gap"></span>'+
+  [["all","Both hands"],["L","vs LHH"],["R","vs RHH"]].map(function(x){
+   return '<button class="chip'+(S.f.hand===x[0]?" on":"")+'" data-a="fhand" data-v="'+x[0]+'">'+x[1]+'</button>';}).join("")+'<span class="gap"></span>'+
+  [["all","Any base state"],["on","Runners on"],["empty","Bases empty"]].map(function(x){
+   return '<button class="chip'+(S.f.run===x[0]?" on":"")+'" data-a="frun" data-v="'+x[0]+'">'+x[1]+'</button>';}).join("")+'</div>'+
+  pitcherFilterRow();
+
+ if(P.length<8)return h+'<div class="empty">'+P.length+' pitches in this filter.<br>Tendencies start showing up around 20&ndash;25 pitches, and the count splits firm up closer to 50.</div>';
+
+ var keys=buildKeys(P);
+ h+='<div class="panel sec"><h3 class="ptitle">Keys — strongest tendencies right now'+
+  (S.f.pitcher!=="all"?'<span class="aside">'+esc(S.f.pitcher)+'</span>':'')+'</h3>';
+ if(!keys.length)h+='<div class="empty-inline">Nothing above the 65% threshold yet. He\'s mixing, or there isn\'t enough sample.</div>';
+ else h+='<div class="keylist">'+keys.map(function(k){
+  return '<div class="key" style="border-left-color:'+colorOf(k.type)+'"><div class="kpct" style="color:'+colorOf(k.type)+'">'+k.pct+'%</div>'+
+   '<div class="ktxt">'+(k.loc?k.text:k.label+' &rarr; <b>'+(TYPE_MAP[k.type]?TYPE_MAP[k.type].label:k.type)+'</b>')+
+   '<em>'+k.n+' of '+k.total+' pitches</em></div></div>';}).join("")+'</div>';
+ if(S.f.pitcher==="all"&&arms().length>1)
+  h+='<p class="note danger" style="color:#FF8A3D">You\'re looking at '+arms().length+' pitchers blended together. Pick one above.</p>';
+ h+='</div>';
+
+ if(tipsOn()){
+  var ts=buildTells(P,tells());
+  if(ts.length){
+   h+='<div class="panel sec"><h3 class="ptitle">Pitch tips <span class="aside">what he threw when the tip showed</span></h3><div style="display:flex;flex-direction:column;gap:8px">'+
+    ts.map(function(t){
+     return '<div class="seqrow"><span style="font-weight:600;font-size:13px">'+esc(t.label)+'</span><span class="arrow">&rarr;</span>'+
+      (t.onMix.length?'<span class="tag" style="background:'+colorOf(t.onMix[0].code)+'">'+t.onMix[0].code+'</span><span class="mono">'+t.onMix[0].pct+'%</span>':'')+
+      '<span class="meta">'+t.onN+' with the tip'+(t.offMix.length?' &middot; without it, mostly '+t.offMix[0].code+' ('+t.offMix[0].pct+'%)':'')+'</span></div>';}).join("")+
+    '</div><p class="note">A real tip usually runs 90%+. Anything in the 60s is probably noise — don\'t let a hitter sit on it.</p></div>';}}
+
+ h+='<div class="panel sec"><h3 class="ptitle">Overall mix <span class="aside">'+P.length+' pitches</span></h3>'+mixBar(mix(P))+'</div>';
+
+ h+='<div class="panel sec"><h3 class="ptitle">By count</h3><div class="countgrid">'+COUNTS.map(function(c){
+  var a=c.split("-");
+  var set=P.filter(function(p){return p.balls===+a[0]&&p.strikes===+a[1];});
+  var m=mix(set).slice(0,3);
+  return '<div class="cbox'+(set.length<3?" dim":"")+'"><div class="cl">'+c+'<span class="cn">n='+set.length+'</span></div>'+
+   (m.length?m.map(function(d){return '<div class="row"><span><i style="background:'+colorOf(d.code)+'"></i>'+d.code+'</span><span>'+d.pct+'%</span></div>';}).join("")
+    :'<div class="empty-inline">&mdash;</div>')+'</div>';}).join("")+'</div></div>';
+
+ var sq=buildSequences(P);
+ h+='<div class="panel sec"><h3 class="ptitle">What follows what</h3>';
+ if(!sq.length)h+='<div class="empty-inline">Needs at least 4 examples of a given setup pitch. Keep charting.</div>';
+ else h+='<div style="display:flex;flex-direction:column;gap:7px">'+sq.slice(0,7).map(function(s){
+  return '<div class="seqrow"><span class="tag" style="background:'+colorOf(s.prevType)+'">'+s.prevType+'</span>'+
+   '<span style="font-size:12px;color:var(--sage)">for a '+s.prevRes+'</span><span class="arrow">&rarr;</span>'+
+   '<span class="tag" style="background:'+colorOf(s.top.code)+'">'+s.top.code+'</span><span class="mono">'+s.top.pct+'%</span>'+
+   '<span class="meta">'+s.top.n+' of '+s.total+'</span></div>';}).join("")+'</div>';
+ h+='</div>';
+
+ h+='<div class="panel"><h3 class="ptitle">Location by pitch type</h3><div class="loczone">'+
+  PITCH_TYPES.filter(function(t){return P.some(function(p){return p.type===t.code;});}).map(function(t){
+   var set=P.filter(function(p){return p.type===t.code;});
+   return '<div class="loccard"><div class="lt" style="color:'+t.color+'">'+t.code+'</div>'+miniZone(set)+
+    '<div style="font-size:10.5px;color:var(--sage)">'+set.length+' pitches</div></div>';}).join("")+'</div></div>';
+ return h;}
+
+function viewHitters(){
+ var P=pool();
+ var h='<div class="filters">'+
+  '<button class="chip'+(S.f.scope==="game"?" on":"")+'" data-a="fscope" data-v="game">This game</button>'+
+  '<button class="chip'+(S.f.scope==="all"?" on":"")+'" data-a="fscope" data-v="all">All games, this pitcher</button></div>'+
+  pitcherFilterRow();
+ if(P.length<8)return h+'<div class="empty">Not enough charted yet.<br>Hitter splits need a couple of innings before they mean anything.</div>';
+
+ var T=split(P);
+ h+='<div class="panel sec"><h3 class="ptitle">Team, against '+(S.f.pitcher==="all"?"this staff":esc(S.f.pitcher))+' <span class="aside">'+P.length+' pitches seen</span></h3><div class="statrow">'+
+  stat("Swing rate",T.swingPct+"%",T.swings+" swings")+
+  stat("Whiff / swing",T.whiffPct+"%","",T.whiffPct>=30)+
+  stat("Chase rate",T.chasePct+"%",T.ozSeen+" out of zone",T.chasePct>=35)+
+  stat("Took a strike",T.takeStrikePct+"%",T.izSeen+" in zone",T.takeStrikePct>=35)+
+  stat("Hard contact",T.hardPct+"%",T.bip+" in play")+'</div></div>';
+
+ h+='<div class="panel sec"><h3 class="ptitle">How we\'re handling each pitch</h3><div class="loczone">'+
+  PITCH_TYPES.filter(function(t){return P.some(function(p){return p.type===t.code;});}).map(function(t){
+   var s=split(P.filter(function(p){return p.type===t.code;}));
+   return '<div class="vscard"><div class="vt" style="color:'+t.color+'">'+t.label+'</div>'+
+    '<div class="vsrow"><span>Seen</span><b>'+s.seen+'</b></div>'+
+    '<div class="vsrow"><span>Whiff / swing</span><b>'+s.whiffPct+'%</b></div>'+
+    '<div class="vsrow"><span>Chase</span><b>'+s.chasePct+'%</b></div>'+
+    '<div class="vsrow"><span>Hard contact</span><b>'+(s.bip?s.hardPct+"%":"&mdash;")+'</b></div>'+
+    '<div class="vsrow"><span>Hits</span><b>'+s.hits+'</b></div></div>';}).join("")+'</div></div>';
+
+ var names=[];P.forEach(function(p){if(p.batter&&names.indexOf(p.batter)<0)names.push(p.batter);});
+ h+='<div class="panel"><h3 class="ptitle">By hitter</h3>';
+ if(!names.length)h+='<div class="empty-inline">No lineup entered for this game — add one on the Games tab and hitter splits will fill in from there.</div>';
+ else{
+  var rows=names.map(function(n){var ps=P.filter(function(p){return p.batter===n;});
+   var s=split(ps);s.name=n;s.pitches=ps;return s;}).sort(function(a,b){return b.seen-a.seen;});
+  h+='<div class="tblwrap"><table class="htable"><thead><tr><th>Hitter</th><th>Pitches</th><th>Swing</th><th>Whiff</th><th>Chase</th><th>Hard</th><th>Hits</th><th>Trouble pitch</th></tr></thead><tbody>'+
+   rows.map(function(r){
+    var worst=PITCH_TYPES.map(function(t){return{t:t,s:split(r.pitches.filter(function(p){return p.type===t.code;}))};})
+     .filter(function(x){return x.s.swings>=2;}).sort(function(a,b){return b.s.whiffPct-a.s.whiffPct;})[0];
+    return '<tr><td class="nm">'+esc(r.name)+'</td><td>'+r.seen+'</td><td>'+r.swingPct+'%</td>'+
+     '<td'+(r.whiffPct>=35?' style="color:#FF8A3D"':'')+'>'+r.whiffPct+'%</td>'+
+     '<td'+(r.chasePct>=40?' style="color:#FF8A3D"':'')+'>'+r.chasePct+'%</td>'+
+     '<td>'+(r.bip?r.hardPct+"%":"&mdash;")+'</td><td>'+r.hits+'</td>'+
+     '<td class="txt">'+(worst&&worst.s.whiffPct>=40?'<span style="color:'+worst.t.color+'">'+worst.t.label+' &middot; '+worst.s.whiffPct+'% whiff</span>':'<span style="color:var(--sage)">&mdash;</span>')+'</td></tr>';}).join("")+
+   '</tbody></table></div>';}
+ h+='<p class="note">Whiff is per swing, chase is swings at pitches outside the zone. A pinch hitter shows as his own row — the guy he replaced keeps his earlier at-bats. "Trouble pitch" only flags after two swings with 40%+ misses, so treat it as a place to look, not a verdict.</p></div>';
+ return h;}
+
+function viewSetup(){
+ var g=game(),r=roster(),ts=tells(),ar=arms();
+ var h='<div class="setup"><div class="panel"><h3 class="ptitle">Start a new game</h3>'+
+  '<div class="frow"><div class="field"><label>Date</label><input type="date" data-in="form.date" value="'+esc(S.form.date)+'"></div>'+
+  '<div class="field"><label>Opponent</label><input placeholder="Cal State" data-in="form.opponent" value="'+esc(S.form.opponent)+'"></div></div>'+
+  '<div class="frow"><div class="field"><label>Starting pitcher</label><input placeholder="Last name" data-in="form.pitcher" value="'+esc(S.form.pitcher)+'"></div>'+
+  '<div class="field"><label>Catcher</label><input placeholder="Optional" data-in="form.catcher" value="'+esc(S.form.catcher)+'"></div></div>'+
+  '<div class="staterow" style="margin-top:4px"><span style="font-size:12px;color:var(--sage);align-self:center;margin-right:4px">Throws</span>'+
+  ["R","L"].map(function(x){return '<button class="chip'+(S.form.hand===x?" on":"")+'" data-a="formhand" data-v="'+x+'">'+x+'HP</button>';}).join("")+'</div>'+
+  '<button class="go" data-a="newgame">Start charting</button></div>';
+
+ if(g){
+  h+='<div class="panel" style="margin-top:13px"><h3 class="ptitle">Pitchers used <span class="aside">vs '+esc(g.meta.opponent)+'</span></h3><div class="lineup">'+
+   ar.map(function(x,i){
+    var n=g.pitches.filter(function(p){return p.pitcher===x.name;}).length;
+    return '<div class="lrow"><span class="ln">'+(i+1)+'</span><span class="nmx">'+esc(x.name)+'</span>'+
+     '<span style="color:var(--sage);font-size:11.5px">'+x.hand+'HP</span>'+
+     '<span style="color:var(--sage);font-size:11px;font-family:\'IBM Plex Mono\'">'+n+'</span>'+
+     '<button class="x" data-a="rmarm" data-v="'+x.id+'" aria-label="Remove">&times;</button></div>';}).join("")+'</div>'+
+   '<p class="note" style="margin-top:0">Change pitchers from the Chart tab — the button next to whoever\'s on the mound. A pitcher with charted pitches can\'t be removed.</p></div>';
+
+  h+='<div class="panel" style="margin-top:13px"><h3 class="ptitle">Our lineup</h3>';
+  if(r.length)h+='<div class="lineup">'+r.map(function(b,i){
+   return '<div class="lrow"><span class="ln">'+(i+1)+'</span><span class="nmx">'+esc(b.name)+'</span>'+
+    '<span style="color:var(--sage);font-size:11.5px">'+b.hand+'HH</span>'+
+    '<button class="mv" data-a="mvbat" data-v="'+i+':-1" aria-label="Move up">&#9650;</button>'+
+    '<button class="mv" data-a="mvbat" data-v="'+i+':1" aria-label="Move down">&#9660;</button>'+
+    '<button class="sb" data-a="subat" data-v="'+i+'">Sub</button>'+
+    '<button class="x" data-a="rmbat" data-v="'+i+'" aria-label="Remove">&times;</button></div>';}).join("")+'</div>';
+  h+='<div class="frow" style="margin-bottom:0"><div class="field" style="flex:2"><input placeholder="Add a hitter" data-in="newBat.name" data-enter="addbat" value="'+esc(S.newBat.name)+'"></div>'+
+   '<div class="staterow" style="margin-bottom:0;align-items:center">'+
+   ["R","L"].map(function(x){return '<button class="chip'+(S.newBat.hand===x?" on":"")+'" data-a="bathand" data-v="'+x+'">'+x+'</button>';}).join("")+
+   '<button class="chip on" data-a="addbat">Add</button></div></div>'+
+   '<p class="note">Arrows reorder the batting order. "Sub" swaps a new hitter into that slot and keeps the old one\'s at-bats under his own name — you can also do it mid-game from the Chart tab.</p></div>';
+
+  h+='<div class="panel" style="margin-top:13px"><h3 class="ptitle">Pitch tips'+
+   '<button class="chip sm'+(tipsOn()?" on":"")+'" data-a="toggletips">'+(tipsOn()?"On":"Off")+'</button></h3>';
+  if(!tipsOn())h+='<p class="note" style="margin-top:0">Off. Turn this on only if you have a second person watching the pitcher\'s mechanics — it adds a tap per pitch and splits the charter\'s attention.</p>';
+  else{
+   if(ts.length)h+='<div class="lineup">'+ts.map(function(t){
+    return '<div class="lrow"><span class="nmx">'+esc(t.label)+'</span><button class="x" data-a="rmtell" data-v="'+t.id+'" aria-label="Remove">&times;</button></div>';}).join("")+'</div>';
+   h+='<div class="frow" style="margin-bottom:0"><div class="field" style="flex:2">'+
+    '<input placeholder="e.g. glove flare, higher hands" data-in="newTell" data-enter="addtell" value="'+esc(S.newTell)+'"></div>'+
+    '<button class="chip on" data-a="addtell" style="padding:11px 16px">Add</button></div>'+
+    '<p class="note">Each becomes a small toggle on the chart screen. Mark it when you see it, and the Pitcher tab shows what he actually threw when it was present.</p>';}
+  h+='</div>';
+
+  h+='<div class="panel" style="margin-top:13px"><h3 class="ptitle">This game</h3>'+
+   '<div class="staterow" style="margin-bottom:0">'+
+   '<button class="chip warn" data-a="clearpitches">Erase '+g.pitches.length+' pitches</button>'+
+   '<button class="chip warn" data-a="delgame" data-v="'+g.meta.id+'">Delete this game</button></div>'+
+   '<p class="note">Erasing keeps the lineup and pitchers so you can re-run a test. Both ask first.</p></div>';}
+
+ if(S.games.length){
+  h+='<div class="panel" style="margin-top:13px"><h3 class="ptitle">Saved games</h3><div class="lineup" style="max-height:300px;overflow-y:auto">'+
+   S.games.map(function(gg){
+    return '<div class="lrow'+(gg.meta.id===S.activeId?'" style="border-left:3px solid var(--dirt)':'')+'">'+
+     '<span class="ln">'+esc(gg.meta.date.slice(5))+'</span>'+
+     '<button class="nmx" style="text-align:left;font-weight:600" data-a="loadgame" data-v="'+gg.meta.id+'">'+esc(gg.meta.pitcher)+' <span style="color:var(--sage);font-weight:400">vs '+esc(gg.meta.opponent)+'</span></button>'+
+     '<span style="color:var(--sage);font-size:11px;font-family:\'IBM Plex Mono\'">'+gg.pitches.length+'</span>'+
+     '<button class="x" data-a="delgame" data-v="'+gg.meta.id+'" aria-label="Delete game">&times;</button></div>';}).join("")+'</div></div>';}
+
+ h+='<div class="panel" style="margin-top:13px"><h3 class="ptitle">Backup</h3>'+
+  '<div class="staterow"><button class="chip" data-a="backup">Save backup file</button>'+
+  '<label class="chip" style="cursor:pointer">Load backup<input type="file" accept="application/json" data-file="restore" style="display:none"></label></div>'+
+  '<p class="note" style="margin-top:0">Everything lives in this browser only. Clearing site data wipes it, and it won\'t follow you to another device — so pull a backup after each game if the data matters.</p></div></div>';
+ return h;}
+
+/* ================= render ================= */
+function render(){
+ var g=game(),a=arm();
+ var h='<div class="topbar"><div class="brand">Pitch Chart<small>'+
+  (g?esc((a?a.name:g.meta.pitcher)+" · "+(a?a.hand:g.meta.hand)+"HP · "+g.meta.opponent):"No game loaded")+'</small></div><div class="tabs">'+
+  [["chart","Chart"],["tend","Pitcher"],["hit","Our hitters"],["setup","Games"]].map(function(t){
+   return '<button class="tab'+(S.tab===t[0]?" on":"")+'" data-a="tab" data-v="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div></div>';
+
+ if(S.tab==="setup")h+=viewSetup();
+ else if(!g)h+='<div class="empty">No game loaded yet.<br>Open the Games tab to start one.</div>';
+ else if(S.tab==="chart")h+=viewChart();
+ else if(S.tab==="hit")h+=viewHitters();
+ else h+=viewPitcher();
+
+ if(S.toast)h+='<div class="toast">'+esc(S.toast)+'</div>';
+ document.getElementById("app").innerHTML=h;}
+
+/* ================= events ================= */
+function setPath(path,val){
+ var parts=path.split(".");
+ if(parts.length===1)S[parts[0]]=val;else S[parts[0]][parts[1]]=val;}
+
+document.addEventListener("click",function(e){
+ var el=e.target.closest("[data-a]");if(!el)return;
+ var a=el.getAttribute("data-a"),v=el.getAttribute("data-v");
+ if(a==="tab")S.tab=v;
+ else if(a==="type")S.sel.type=v;
+ else if(a==="zone")S.sel.zone=+v;
+ else if(a==="res"){if(!(S.sel.type&&S.sel.zone!=null))return;
+  if(v==="IP")S.pendingIP={outcome:null};else commit(v,null,null);}
+ else if(a==="ipout")S.pendingIP.outcome=v;
+ else if(a==="ipcommit"){if(!S.pendingIP.outcome)return;commit("IP",S.pendingIP.outcome,v);}
+ else if(a==="ipcancel")S.pendingIP=null;
+ else if(a==="tell"){var i=S.activeTells.indexOf(v);if(i>=0)S.activeTells.splice(i,1);else S.activeTells.push(v);}
+ else if(a==="undo")undo();
+ else if(a==="nextab"){S.live=nextAbState(clone(S.live));S.sel={type:null,zone:null};S.pendingIP=null;}
+ else if(a==="export")exportCsv();
+ else if(a==="backup")exportBackup();
+ else if(a==="inn")S.live.inning=Math.max(1,S.live.inning+(+v));
+ else if(a==="outs")S.live.outs=Math.min(2,Math.max(0,S.live.outs+(+v)));
+ else if(a==="hand")S.live.hand=v;
+ else if(a==="run")S.live[v]=!S.live[v];
+ else if(a==="resetcount"){S.live.balls=0;S.live.strikes=0;}
+ else if(a==="bat")setBatter(S.live.bIdx+(+v));
+ else if(a==="subopen"){S.subOpen=!S.subOpen;S.sub={name:"",hand:batter()?batter().hand:"R"};}
+ else if(a==="subclose")S.subOpen=false;
+ else if(a==="subhand")S.sub.hand=v;
+ else if(a==="subhit")subHitter();
+ else if(a==="subat")subHitterAt(+v);
+ else if(a==="mvbat"){var pr=v.split(":");moveBat(+pr[0],+pr[1]);}
+ else if(a==="armopen"){S.armOpen=!S.armOpen;S.newP={name:"",hand:"R"};}
+ else if(a==="armclose")S.armOpen=false;
+ else if(a==="newphand")S.newP.hand=v;
+ else if(a==="addarm")addArm();
+ else if(a==="pickarm")pickArm(+v);
+ else if(a==="rmarm")removeArm(v);
+ else if(a==="newgame")createGame();
+ else if(a==="formhand")S.form.hand=v;
+ else if(a==="bathand")S.newBat.hand=v;
+ else if(a==="addbat"){if(!S.newBat.name.trim())return;
+  game().meta.roster.push({name:S.newBat.name.trim(),hand:S.newBat.hand});S.newBat.name="";save();}
+ else if(a==="rmbat"){game().meta.roster.splice(+v,1);
+  var rl=roster().length;if(rl&&S.live.bIdx>=rl)S.live.bIdx=0;save();}
+ else if(a==="toggletips"){game().meta.tipsOn=!game().meta.tipsOn;save();}
+ else if(a==="addtell"){if(!S.newTell.trim())return;
+  game().meta.tells.push({id:"t"+Date.now(),label:S.newTell.trim()});S.newTell="";save();}
+ else if(a==="rmtell"){var g2=game();g2.meta.tells=g2.meta.tells.filter(function(t){return t.id!==v;});save();}
+ else if(a==="loadgame"){switchGame(v);S.tab="chart";}
+ else if(a==="delgame")deleteGame(v);
+ else if(a==="clearpitches")clearPitches();
+ else if(a==="fscope"){S.f.scope=v;
+  if(v==="all"&&S.f.pitcher==="all"){var cur=arm();if(cur)S.f.pitcher=cur.name;}}
+ else if(a==="fpitch")S.f.pitcher=v;
+ else if(a==="fhand")S.f.hand=v;
+ else if(a==="frun")S.f.run=v;
+ else return;
+ render();});
+
+document.addEventListener("input",function(e){
+ var el=e.target;
+ if(el.hasAttribute&&el.hasAttribute("data-in"))setPath(el.getAttribute("data-in"),el.value);});
+
+document.addEventListener("change",function(e){
+ var el=e.target;
+ if(el.getAttribute&&el.getAttribute("data-sel")==="game"){switchGame(el.value);render();}
+ if(el.getAttribute&&el.getAttribute("data-file")==="restore"&&el.files&&el.files[0]){importBackup(el.files[0]);el.value="";}});
+
+document.addEventListener("keydown",function(e){
+ if(e.key!=="Enter")return;
+ var el=e.target;if(!el.hasAttribute||!el.hasAttribute("data-enter"))return;
+ var a=el.getAttribute("data-enter");
+ if(a==="addbat"&&S.newBat.name.trim()){game().meta.roster.push({name:S.newBat.name.trim(),hand:S.newBat.hand});S.newBat.name="";save();render();}
+ if(a==="addtell"&&S.newTell.trim()){game().meta.tells.push({id:"t"+Date.now(),label:S.newTell.trim()});S.newTell="";save();render();}
+ if(a==="subhit")subHitter(),render();
+ if(a==="addarm")addArm(),render();});
+
+load();render();
+
+/* offline support — harmless if sw.js isn't uploaded */
+if("serviceWorker" in navigator&&location.protocol==="https:")
+ window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});
+</script>
+</body>
+</html>
