@@ -269,7 +269,12 @@ function flash(m){S.toast=m;render();clearTimeout(toastTimer);toastTimer=setTime
 function mix(ps){var c={};ps.forEach(function(p){c[p.type]=(c[p.type]||0)+1;});var tot=ps.length||1;
  return Object.keys(c).map(function(k){return{code:k,n:c[k],pct:Math.round(c[k]/tot*100)};}).sort(function(a,b){return b.n-a.n;});}
 
+/* A tendency is only news if it differs from what he does the rest of the time.
+   Everything below is scored as lift over this pitcher's own baseline mix. */
+var MIN_N=4, MIN_PCT=45, MIN_LIFT=18;
+
 function buildKeys(ps){
+ var base={};mix(ps).forEach(function(m){base[m.code]=m.pct;});
  var buckets=[
   {label:"First pitch of the at-bat",t:function(p){return p.balls===0&&p.strikes===0;}},
   {label:"With two strikes",t:function(p){return p.strikes===2;}},
@@ -279,21 +284,41 @@ function buildKeys(ps){
   {label:"Bases empty",t:function(p){return !p.r1&&!p.r2&&!p.r3;}},
   {label:"vs. left-handed hitters",t:function(p){return p.hand==="L";}},
   {label:"vs. right-handed hitters",t:function(p){return p.hand==="R";}}];
- COUNTS.forEach(function(c){var a=c.split("-");
+ /* 0-0 is the same set as "first pitch" — skip it so the list can't say it twice */
+ COUNTS.forEach(function(c){if(c==="0-0")return;var a=c.split("-");
   buckets.push({label:"On "+c,t:function(p){return p.balls===+a[0]&&p.strikes===+a[1];}});});
+
  var keys=[];
- buckets.forEach(function(bk){var set=ps.filter(bk.t);if(set.length<5)return;var m=mix(set);
-  if(!m.length||m[0].pct<65)return;
-  keys.push({label:bk.label,type:m[0].code,pct:m[0].pct,n:m[0].n,total:set.length,score:m[0].pct*Math.min(set.length,30)});});
- PITCH_TYPES.forEach(function(t){
-  var set=ps.filter(function(p){return p.type===t.code&&p.zone!=null;});if(set.length<6)return;
-  var checks=[
-   {n:set.filter(function(p){return Math.floor(p.zone/5)>=3;}).length,txt:"finishes low or below the zone"},
-   {n:set.filter(function(p){return Math.floor(p.zone/5)<=1;}).length,txt:"lives up in the zone"},
-   {n:set.filter(function(p){return !inZone(p.zone);}).length,txt:"is out of the zone"}];
-  checks.forEach(function(c){var v=pc(c.n,set.length);if(v>=65)
-   keys.push({loc:true,text:v+"% of his "+t.label.toLowerCase()+"s "+c.txt,type:t.code,pct:v,n:c.n,total:set.length,score:v*Math.min(set.length,30)});});});
- return keys.sort(function(a,b){return b.score-a.score;}).slice(0,8);}
+ buckets.forEach(function(bk){
+  var set=ps.filter(bk.t);if(set.length<MIN_N)return;
+  var m=mix(set);if(!m.length)return;
+  var best=null;
+  m.slice(0,2).forEach(function(d){
+   var lift=d.pct-(base[d.code]||0);
+   if(d.pct>=MIN_PCT&&lift>=MIN_LIFT&&(!best||lift>best.lift))
+    best={code:d.code,pct:d.pct,n:d.n,lift:lift};});
+  if(!best)return;
+  keys.push({label:bk.label,type:best.code,pct:best.pct,base:base[best.code]||0,lift:best.lift,
+   n:best.n,total:set.length,thin:set.length<6,score:best.lift*Math.min(set.length,24)});});
+
+ /* location: same idea — compare a pitch type's location to where everything else goes */
+ var zoned=ps.filter(function(p){return p.zone!=null;});
+ if(zoned.length>=12){
+  var dims=[
+   {key:"low",txt:"finishes low or below the zone",t:function(p){return Math.floor(p.zone/5)>=3;}},
+   {key:"up",txt:"lives up in the zone",t:function(p){return Math.floor(p.zone/5)<=1;}},
+   {key:"chase",txt:"is out of the zone",t:function(p){return !inZone(p.zone);}}];
+  PITCH_TYPES.forEach(function(t){
+   var set=zoned.filter(function(p){return p.type===t.code;});if(set.length<5)return;
+   var rest=zoned.filter(function(p){return p.type!==t.code;});if(rest.length<5)return;
+   dims.forEach(function(d){
+    var v=pc(set.filter(d.t).length,set.length),b=pc(rest.filter(d.t).length,rest.length);
+    if(v>=50&&v-b>=MIN_LIFT)
+     keys.push({loc:true,text:v+"% of his "+t.label.toLowerCase()+"s "+d.txt,
+      type:t.code,pct:v,base:b,lift:v-b,n:set.filter(d.t).length,total:set.length,
+      thin:set.length<8,score:(v-b)*Math.min(set.length,24)});});});}
+
+ return keys.sort(function(a,b){return b.score-a.score;}).slice(0,6);}
 
 function buildSequences(ps){
  var byAb={};ps.forEach(function(p){(byAb[p.abId]=byAb[p.abId]||[]).push(p);});
@@ -642,11 +667,13 @@ function viewPitcher(){
  var keys=buildKeys(P);
  h+='<div class="panel sec"><h3 class="ptitle">Keys — strongest tendencies right now'+
   (S.f.pitcher!=="all"?'<span class="aside">'+esc(S.f.pitcher)+'</span>':'')+'</h3>';
- if(!keys.length)h+='<div class="empty-inline">Nothing above the 65% threshold yet. He\'s mixing, or there isn\'t enough sample.</div>';
+ if(!keys.length)h+='<div class="empty-inline">Nothing here yet that differs from what he does the rest of the time. He\'s mixing, or there isn\'t enough sample.</div>';
  else h+='<div class="keylist">'+keys.map(function(k){
+  var lbl=TYPE_MAP[k.type]?TYPE_MAP[k.type].label:k.type;
   return '<div class="key" style="border-left-color:'+colorOf(k.type)+'"><div class="kpct" style="color:'+colorOf(k.type)+'">'+k.pct+'%</div>'+
-   '<div class="ktxt">'+(k.loc?k.text:k.label+' &rarr; <b>'+(TYPE_MAP[k.type]?TYPE_MAP[k.type].label:k.type)+'</b>')+
-   '<em>'+k.n+' of '+k.total+' pitches</em></div></div>';}).join("")+'</div>';
+   '<div class="ktxt">'+(k.loc?k.text:k.label+' &rarr; <b>'+lbl+'</b>')+
+   '<em>'+k.n+' of '+k.total+' &middot; '+(k.loc?"otherwise "+k.base+"%":"normally "+k.base+"% "+lbl.toLowerCase())+
+   ' &middot; <span style="color:var(--dirt)">+'+Math.round(k.lift)+'</span>'+(k.thin?' &middot; thin sample':'')+'</em></div></div>';}).join("")+'</div>';
  if(S.f.pitcher==="all"&&arms().length>1)
   h+='<p class="note danger" style="color:#FF8A3D">You\'re looking at '+arms().length+' pitchers blended together. Pick one above.</p>';
  h+='</div>';
@@ -720,17 +747,25 @@ function viewHitters(){
  else{
   var rows=names.map(function(n){var ps=P.filter(function(p){return p.batter===n;});
    var s=split(ps);s.name=n;s.pitches=ps;return s;}).sort(function(a,b){return b.seen-a.seen;});
+  /* a percentage with two or three events behind it is noise dressed as a number —
+     show the raw counts instead until there's enough to divide by */
+  var thinAny=false;
   h+='<div class="tblwrap"><table class="htable"><thead><tr><th>Hitter</th><th>Pitches</th><th>Swing</th><th>Whiff</th><th>Chase</th><th>Hard</th><th>Hits</th><th>Trouble pitch</th></tr></thead><tbody>'+
    rows.map(function(r){
     var worst=PITCH_TYPES.map(function(t){return{t:t,s:split(r.pitches.filter(function(p){return p.type===t.code;}))};})
-     .filter(function(x){return x.s.swings>=2;}).sort(function(a,b){return b.s.whiffPct-a.s.whiffPct;})[0];
-    return '<tr><td class="nm">'+esc(r.name)+'</td><td>'+r.seen+'</td><td>'+r.swingPct+'%</td>'+
-     '<td'+(r.whiffPct>=35?' style="color:#FF8A3D"':'')+'>'+r.whiffPct+'%</td>'+
-     '<td'+(r.chasePct>=40?' style="color:#FF8A3D"':'')+'>'+r.chasePct+'%</td>'+
-     '<td>'+(r.bip?r.hardPct+"%":"&mdash;")+'</td><td>'+r.hits+'</td>'+
+     .filter(function(x){return x.s.swings>=4;}).sort(function(a,b){return b.s.whiffPct-a.s.whiffPct;})[0];
+    var dim=' style="color:var(--sage);opacity:.55"';
+    if(r.seen<10||r.swings<4)thinAny=true;
+    return '<tr><td class="nm">'+esc(r.name)+(r.seen<10?' <span style="color:var(--sage);font-weight:400;font-size:10.5px">thin</span>':'')+'</td>'+
+     '<td>'+r.seen+'</td>'+
+     '<td'+(r.seen>=10?'':dim)+'>'+(r.seen>=10?r.swingPct+"%":r.swings+"/"+r.seen)+'</td>'+
+     '<td'+(r.swings>=4?(r.whiffPct>=35?' style="color:#FF8A3D"':''):dim)+'>'+(r.swings>=4?r.whiffPct+"%":"&mdash;")+'</td>'+
+     '<td'+(r.ozSeen>=4?(r.chasePct>=40?' style="color:#FF8A3D"':''):dim)+'>'+(r.ozSeen>=4?r.chasePct+"%":"&mdash;")+'</td>'+
+     '<td'+(r.bip>=3?'':dim)+'>'+(r.bip>=3?r.hardPct+"%":"&mdash;")+'</td><td>'+r.hits+'</td>'+
      '<td class="txt">'+(worst&&worst.s.whiffPct>=40?'<span style="color:'+worst.t.color+'">'+worst.t.label+' &middot; '+worst.s.whiffPct+'% whiff</span>':'<span style="color:var(--sage)">&mdash;</span>')+'</td></tr>';}).join("")+
-   '</tbody></table></div>';}
- h+='<p class="note">Whiff is per swing, chase is swings at pitches outside the zone. A pinch hitter shows as his own row — the guy he replaced keeps his earlier at-bats. "Trouble pitch" only flags after two swings with 40%+ misses, so treat it as a place to look, not a verdict.</p></div>';
+   '</tbody></table></div>';
+  if(thinAny)h+='<p class="note danger" style="color:#FF8A3D">Rows marked thin haven\'t seen enough pitches for the rates to mean anything. Switch to "All games, this pitcher" or wait for the season to fill in.</p>';}
+ h+='<p class="note">Whiff is per swing, chase is swings at pitches outside the zone. A dash means the sample is too small to divide — it fills in as the count grows. A pinch hitter shows as his own row; the guy he replaced keeps his earlier at-bats. "Trouble pitch" needs four swings at that pitch and 40%+ misses, so treat it as a place to look, not a verdict.</p></div>';
  return h;}
 
 function viewSetup(){
