@@ -18,7 +18,7 @@ struct WebView: UIViewRepresentable {
         webView.scrollView.bounces = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
 
-        if let url = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "www") {
+        if let url = Bundle.main.url(forResource: "index", withExtension: "html") {
             let dir = url.deletingLastPathComponent()
             webView.loadFileURL(url, allowingReadAccessTo: dir)
         }

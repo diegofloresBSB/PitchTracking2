@@ -11,15 +11,18 @@ Everything runs locally. No account, no server, no network calls.
 ## Layout
 
 ```
-files/                  Web version (PWA) — index.html + service worker
-PitchChartApp/          Native iOS wrapper (Xcode project)
-  PitchChartApp/www/    Bundled copy of the web app
+index.html       The app — a single self-contained file
+sw.js            Service worker, for offline use on the web
+PitchChartApp/   Native iOS wrapper (Xcode project)
 ```
+
+There is one copy of `index.html`, at the repo root. The iOS project references it
+directly as a bundled resource, so editing it updates both the web and iOS versions.
 
 ## Web version
 
-Open `files/index.html` in a browser, or host it anywhere static. It registers a
-service worker over HTTPS so it keeps working offline once loaded.
+Open `index.html` in a browser, or host it anywhere static. It registers a service
+worker over HTTPS so it keeps working offline once loaded.
 
 ## iOS app
 
@@ -37,15 +40,6 @@ To build and run from the command line:
 ```bash
 xcodebuild build -project PitchChartApp/PitchChartApp.xcodeproj \
   -scheme PitchChartApp -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
-```
-
-### Keeping the bundled copy in sync
-
-The iOS app bundles its own copy of the web app. After editing `files/index.html`,
-copy it across:
-
-```bash
-cp files/index.html files/sw.js PitchChartApp/PitchChartApp/www/
 ```
 
 ## Data
