@@ -221,6 +221,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .note{font-size:11.5px;color:var(--sage);line-height:1.55;margin:8px 0 0;}
 
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--chalk);color:var(--bg);padding:11px 20px;border-radius:5px;font-size:12.5px;font-weight:600;z-index:50;max-width:90vw;text-align:center;}
+.vrow{display:flex;align-items:stretch;gap:10px;margin-bottom:11px;}
+.vcode{font-family:'Barlow Condensed';font-weight:700;font-size:16px;letter-spacing:.04em;width:26px;flex:none;padding-top:16px;}
+.vtrend{display:flex;gap:5px;align-items:flex-end;flex:1;min-width:0;height:78px;}
+.vbar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%;}
+.vbar i{display:block;width:100%;border-radius:2px 2px 0 0;min-height:3px;}
+.vval{font-family:'IBM Plex Mono';font-size:10px;font-weight:600;line-height:1;}
+.vval.vthin{color:var(--sage);}
+.vinn{font-size:9px;color:var(--sage);letter-spacing:.06em;line-height:1;}
 .veloin{background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:7px 9px;color:var(--chalk);font-family:'IBM Plex Mono';font-size:12.5px;width:72px;}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 </style>
@@ -421,6 +429,82 @@ function buildTells(ps,ts){
   return{id:t.id,label:t.label,onN:on.length,onMix:mix(on),offMix:mix(off)};})
   .filter(function(t){return t.onN>=3;});}
 
+/* ================= velocity =================
+   Velo is optional — the gun dies, or nobody's holding it. Every function here
+   ignores pitches without a reading rather than treating a blank as a zero, so
+   a half-charted game still gives honest numbers for the pitches you did get. */
+var V_MIN=3;    /* fewest readings before an average is worth printing */
+var V_NOTE=1.0; /* mph — anything tighter is gun scatter, not intent */
+var V_DIP=1.5;  /* mph off his peak inning before we call it a real dip */
+
+function withVelo(ps){return ps.filter(function(p){return typeof p.velo==="number"&&isFinite(p.velo);});}
+/* Last reading from the man currently on the mound — shown as the input's
+   placeholder so you know where he was without it counting as this pitch. */
+function lastVelo(){
+ var a=arm(),v=withVelo(pitches().filter(function(p){return !a||p.pitcher===a.name;}));
+ return v.length?v[v.length-1].velo:null;}
+function vAvg(ps){if(!ps.length)return null;var s=0;ps.forEach(function(p){s+=p.velo;});return s/ps.length;}
+function v1(n){return n==null?"&mdash;":(Math.round(n*10)/10).toFixed(1);}
+function vSigned(n){return (n>0?"+":"−")+v1(Math.abs(n));}
+
+function veloByType(ps){
+ return PITCH_TYPES.map(function(t){
+  var set=withVelo(ps.filter(function(p){return p.type===t.code;}));
+  if(!set.length)return null;
+  var lo=Infinity,hi=-Infinity;
+  set.forEach(function(p){if(p.velo<lo)lo=p.velo;if(p.velo>hi)hi=p.velo;});
+  return{code:t.code,label:t.label,n:set.length,avg:vAvg(set),lo:lo,hi:hi,thin:set.length<V_MIN};
+ }).filter(Boolean).sort(function(a,b){return b.n-a.n;});}
+
+/* Per-inning averages for one pitch type — this is the fatigue read. */
+function veloByInning(ps,code){
+ var set=withVelo(ps.filter(function(p){return p.type===code;})),by={};
+ set.forEach(function(p){(by[p.inning]=by[p.inning]||[]).push(p);});
+ return Object.keys(by).map(Number).sort(function(a,b){return a-b;})
+  .map(function(i){return{inning:i,n:by[i].length,avg:vAvg(by[i])};});}
+
+/* A dip only counts if it's off his own peak and later in the outing —
+   a slow first inning while he's still loose isn't fatigue. */
+function veloDip(rows){
+ var solid=rows.filter(function(r){return r.n>=V_MIN;});
+ if(solid.length<2)return null;
+ var peak=solid[0],last=solid[solid.length-1];
+ solid.forEach(function(r){if(r.avg>peak.avg)peak=r;});
+ if(last.inning<=peak.inning)return null;
+ var drop=peak.avg-last.avg;
+ return drop<V_NOTE?null:{peak:peak,last:last,drop:drop,real:drop>=V_DIP};}
+
+/* What he gives up, and for what. Each split is measured against the same
+   pitch type everywhere else — not against his whole mix, since a changeup
+   being slower than a fastball isn't news. */
+function buildVeloTells(ps){
+ var out=[];
+ PITCH_TYPES.forEach(function(t){
+  var all=withVelo(ps.filter(function(p){return p.type===t.code;}));
+  if(all.length<V_MIN*2)return;
+  var dims=[
+   {kind:"count",label:"on the first pitch",t:function(p){return p.balls===0&&p.strikes===0;}},
+   {kind:"count",label:"with two strikes",t:function(p){return p.strikes===2;}},
+   {kind:"count",label:"when ahead",t:function(p){return p.strikes>p.balls;}},
+   {kind:"count",label:"when behind",t:function(p){return p.balls>p.strikes;}},
+   {kind:"count",label:"on 3&ndash;2",t:function(p){return p.balls===3&&p.strikes===2;}},
+   {kind:"spot",label:"when he works down",t:function(p){return p.zone!=null&&Math.floor(p.zone/5)>=3;}},
+   {kind:"spot",label:"when he works up",t:function(p){return p.zone!=null&&Math.floor(p.zone/5)<=1;}},
+   {kind:"spot",label:"off the plate",t:function(p){return p.zone!=null&&!inZone(p.zone);}},
+   {kind:"spot",label:"in the strike zone",t:function(p){return p.zone!=null&&inZone(p.zone);}},
+   {kind:"spot",label:"to the 3B side",t:function(p){return p.zone!=null&&(p.zone%5)<=1;}},
+   {kind:"spot",label:"to the 1B side",t:function(p){return p.zone!=null&&(p.zone%5)>=3;}},
+   {kind:"base",label:"with runners on",t:function(p){return p.r1||p.r2||p.r3;}}];
+  dims.forEach(function(d){
+   var set=all.filter(d.t);if(set.length<V_MIN)return;
+   var rest=all.filter(function(p){return !d.t(p);});if(rest.length<V_MIN)return;
+   var a=vAvg(set),b=vAvg(rest),delta=a-b;
+   if(Math.abs(delta)<V_NOTE)return;
+   out.push({code:t.code,label:t.label,kind:d.kind,where:d.label,avg:a,base:b,delta:delta,
+    n:set.length,total:all.length,thin:set.length<4,
+    score:Math.abs(delta)*Math.min(set.length,20)});});});
+ return out.sort(function(a,b){return b.score-a.score;}).slice(0,7);}
+
 function pool(){
  var g=game();if(!g)return[];var base;
  if(S.f.scope==="game")base=g.pitches;
@@ -550,7 +634,9 @@ function commit(result,outcome,contact){
  else if(result==="F"){if(n.strikes<2)n.strikes++;}
  else if(result==="HBP"){n.r1=true;n=nextAbState(n);}
  else if(result==="IP"){if(outcome==="OUT")n=addOut(n);n=nextAbState(n);}
- S.live=n;S.sel={type:null,zone:null};S.pendingIP=null;S.activeTells=[];save();}
+ /* Velo clears with the pitch. Carrying it over would silently stamp one
+    reading onto every pitch after it — which is exactly what would hide a dip. */
+ S.live=n;S.sel={type:null,zone:null};S.pendingIP=null;S.activeTells=[];S.velo="";save();}
 
 function undo(){var g=game();if(!g||!g.pitches.length)return;
  g.pitches.pop();
@@ -673,7 +759,9 @@ function viewChart(){
   [["r1","1B"],["r2","2B"],["r3","3B"]].map(function(p){
    return '<button class="chip'+(L[p[0]]?" on":"")+'" data-a="run" data-v="'+p[0]+'">'+p[1]+'</button>';}).join("")+'</div>';
  h+='<div class="staterow" style="margin-bottom:0">'+
-  '<input class="veloin" placeholder="velo" inputmode="numeric" data-in="velo" value="'+esc(S.velo)+'">'+
+  '<input class="veloin" placeholder="'+(lastVelo()!=null?v1(lastVelo()):"velo")+'" inputmode="decimal" '+
+   'aria-label="Velocity for this pitch, optional" title="Optional — leave blank when the gun\'s down" '+
+   'data-in="velo" value="'+esc(S.velo)+'">'+
   '<button class="chip" data-a="resetcount">Reset count</button></div></div>';
 
  h+='<div class="panel"><h3 class="ptitle">2 &middot; Where it finished</h3><div class="zonewrap">'+
@@ -719,6 +807,72 @@ function viewChart(){
  h+='</div></div></div>';
  return h;}
 
+function veloPanel(P){
+ var vs=withVelo(P);
+ var h='<div class="panel sec"><h3 class="ptitle">Velocity<span class="aside">'+
+  (vs.length?vs.length+' of '+P.length+' pitches gunned':'optional')+'</span></h3>';
+
+ if(!vs.length)
+  return h+'<div class="empty-inline">No readings yet. There\'s a <b>velo</b> box on the Chart tab, '+
+   'next to Reset count &mdash; type a number before you tap the result and it rides along with that pitch. '+
+   'Skip it whenever the gun\'s down; every other number in the app works without it.</div></div>';
+
+ var rows=veloByType(vs);
+ h+='<div class="tblwrap"><table class="htable"><tr><th>Pitch</th><th>N</th><th>Avg</th><th>Peak</th><th>Low</th><th>Spread</th></tr>'+
+  rows.map(function(r){
+   return '<tr><td class="nm" style="color:'+colorOf(r.code)+'">'+r.code+'</td>'+
+    '<td'+(r.thin?' style="color:var(--sage)"':'')+'>'+r.n+'</td>'+
+    '<td>'+v1(r.avg)+'</td><td>'+v1(r.hi)+'</td><td>'+v1(r.lo)+'</td>'+
+    '<td style="color:var(--sage)">'+v1(r.hi-r.lo)+'</td></tr>';}).join("")+'</table></div>';
+ if(rows.some(function(r){return r.thin;}))
+  h+='<p class="note">Rows under '+V_MIN+' readings are too thin to average — treat them as a single data point.</p>';
+
+ /* fatigue read — the top few types by volume that span more than one inning */
+ var trends=rows.filter(function(r){return r.n>=V_MIN;}).slice(0,3).map(function(r){
+  return{code:r.code,rows:veloByInning(vs,r.code)};})
+  .filter(function(t){return t.rows.length>=2;});
+
+ if(trends.length){
+  h+='<div style="margin-top:13px"><div class="sl" style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);margin-bottom:8px">Inning by inning</div>';
+  trends.forEach(function(t){
+   var rs=t.rows,lo=Infinity,hi=-Infinity;
+   rs.forEach(function(r){if(r.avg<lo)lo=r.avg;if(r.avg>hi)hi=r.avg;});
+   /* Anchor the scale to a 4 mph window, not to his own spread. Otherwise a
+      guy who holds 90.1–90.4 all day draws the same alarming staircase as one
+      who's lost five ticks, and the chart lies about the thing it's for. */
+   var span=Math.max(hi-lo,4);
+   h+='<div class="vrow"><span class="vcode" style="color:'+colorOf(t.code)+'">'+t.code+'</span><div class="vtrend">'+
+    rs.map(function(r){
+     var pctH=28+62*((r.avg-lo)/span);
+     return '<div class="vbar" title="Inning '+r.inning+' · '+v1(r.avg)+' mph · '+r.n+' pitches">'+
+      '<span class="vval'+(r.n<V_MIN?' vthin':'')+'">'+v1(r.avg)+'</span>'+
+      '<i style="height:'+pctH.toFixed(0)+'%;background:'+colorOf(t.code)+(r.n<V_MIN?';opacity:.35':'')+'"></i>'+
+      '<span class="vinn">'+r.inning+'</span></div>';}).join("")+'</div></div>';
+   var dip=veloDip(rs);
+   if(dip)
+    h+='<p class="note"'+(dip.real?' style="color:var(--warn)"':'')+'>'+t.code+' is <b>'+v1(dip.drop)+
+     '</b> off its peak &mdash; '+v1(dip.peak.avg)+' in the '+ord(dip.peak.inning)+', '+v1(dip.last.avg)+
+     ' in the '+ord(dip.last.inning)+'.'+(dip.real?' That\'s a real dip, not gun scatter.':' Close enough to noise that I\'d want more readings.')+'</p>';});
+  h+='</div>';}
+
+ var tells=buildVeloTells(vs);
+ if(tells.length){
+  h+='<div style="margin-top:14px"><div class="sl" style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);margin-bottom:8px">What he gives up, and for what</div><div class="keylist">'+
+   tells.map(function(k){
+    var faster=k.delta>0;
+    return '<div class="key" style="border-left-color:'+colorOf(k.code)+'">'+
+     '<div class="kpct" style="color:'+(faster?'var(--ok)':'var(--warn)')+'">'+vSigned(k.delta)+'</div>'+
+     '<div class="ktxt">His <b>'+k.label.toLowerCase()+'</b> '+(faster?'plays up':'drops off')+' '+k.where+
+     '<em>'+v1(k.avg)+' there vs '+v1(k.base)+' otherwise &middot; '+k.n+' of '+k.total+
+     (k.thin?' &middot; thin sample':'')+'</em></div></div>';}).join("")+'</div>';
+  h+='<p class="note">Measured against the same pitch everywhere else, so a slow changeup isn\'t flagged just for being a changeup. Gaps under '+v1(V_NOTE)+' mph are left out.</p></div>';}
+ else if(vs.length>=V_MIN*2)
+  h+='<p class="note">Nothing yet where he changes speed for a spot or a count. Needs about '+(V_MIN*2)+' readings of one pitch type before splits mean anything.</p>';
+
+ return h+'</div>';}
+
+function ord(n){var s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+
 function viewPitcher(){
  var P=pool();
  var h='<div class="filters">'+
@@ -757,6 +911,8 @@ function viewPitcher(){
     '</div><p class="note">A real tip usually runs 90%+. Anything in the 60s is probably noise — don\'t let a hitter sit on it.</p></div>';}}
 
  h+='<div class="panel sec"><h3 class="ptitle">Overall mix <span class="aside">'+P.length+' pitches</span></h3>'+mixBar(mix(P))+'</div>';
+
+ h+=veloPanel(P);
 
  h+='<div class="panel sec"><h3 class="ptitle">By count</h3><div class="countgrid">'+COUNTS.map(function(c){
   var a=c.split("-");

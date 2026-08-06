@@ -42,6 +42,31 @@ xcodebuild build -project PitchChartApp/PitchChartApp.xcodeproj \
   -scheme PitchChartApp -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
 ```
 
+## Velocity
+
+Optional. There's a velo box on the Chart tab — type a number before tapping the
+result and it rides along with that pitch. Leave it blank whenever the gun's
+down; every other number in the app works without it, and a half-charted game
+still gives honest velocity numbers for the pitches you did get.
+
+Readings clear after each pitch rather than carrying over, so a stale number
+never gets stamped onto pitches nobody gunned. The last reading from the man on
+the mound shows as the placeholder, for reference.
+
+With readings in, the Pitcher tab adds:
+
+- **Per pitch type** — average, peak, low, spread
+- **Inning by inning** — the fatigue read, flagging a drop off his own peak.
+  Bars are scaled to a fixed 4 mph window, so a pitcher holding 90.1–90.4 draws
+  a flat line instead of a misleading staircase
+- **What he gives up, and for what** — where he takes something off to locate,
+  and where he reaches back. Each split is measured against the same pitch type
+  everywhere else, so a changeup isn't flagged merely for being slower than a
+  fastball
+
+Gaps under 1 mph are treated as gun scatter and left out. Splits need at least
+three readings before they're shown at all.
+
 ## Themes
 
 Dark by default, with a light theme for charting outdoors — a dark screen in
