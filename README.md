@@ -67,6 +67,22 @@ With readings in, the Pitcher tab adds:
 Gaps under 1 mph are treated as gun scatter and left out. Splits need at least
 three readings before they're shown at all.
 
+## What it tells you
+
+**While you're charting.** The Chart tab shows what this pitcher throws in the
+situation in front of you — the live count, batter hand, runners. When the exact
+count is too thin it widens to "with two strikes" or "when he's behind" and says
+which. It also carries a pitch count, and raises a fatigue flag only when the
+count and a real velocity drop agree; either alone is too easy to over-read.
+
+**After the fact.** The Pitcher tab covers tendencies that differ from his own
+baseline, sequencing, count splits, velocity by inning, the contact he gives up,
+and the umpire's actual zone that day — called strikes outside the box and balls
+inside it, drawn from pitches the hitter took.
+
+Everything states its sample size, and views stay silent rather than print a
+percentage built on three events.
+
 ## Themes
 
 Dark by default, with a light theme for charting outdoors — a dark screen in

@@ -79,6 +79,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .bar .nav{padding:7px 11px;border-radius:4px;background:var(--panel);color:var(--sage);font-size:14px;line-height:1;}
 .bar .nav:hover{color:var(--chalk);}
 .bar.arm{border-left:3px solid var(--dirt);}
+.pcount{font-family:'IBM Plex Mono';font-size:15px;font-weight:600;color:var(--chalk);padding:0 4px 0 2px;line-height:1;white-space:nowrap;}
+.pcount em{font-style:normal;font-size:9.5px;letter-spacing:.1em;color:var(--sage);margin-left:2px;}
+.pcount.hot{color:var(--warn);}
+.pcount.hot em{color:var(--warn);opacity:.7;}
+.fatigue{display:flex;align-items:center;gap:11px;background:var(--raise);border-left:3px solid var(--warn);border-radius:0 5px 5px 0;padding:10px 12px;margin-bottom:9px;}
+.fatigue .fnum{font-family:'IBM Plex Mono';font-weight:600;font-size:19px;color:var(--warn);}
+.fatigue .ftxt{font-size:12px;line-height:1.45;}
+.fatigue .ftxt em{font-style:normal;color:var(--sage);font-size:10.5px;display:block;margin-top:3px;letter-spacing:.03em;}
 .bar .tiny{padding:6px 9px;border-radius:4px;background:var(--panel);color:var(--sage);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
 .bar .tiny:hover{color:var(--chalk);}
 
@@ -113,6 +121,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .zcell{border:1px solid var(--zline);border-radius:3px;background:var(--zbg);}
 .zcell.inzone{border-color:var(--zinline);background:var(--zinbg);}
 .zcell.pick{background:var(--chalk);border-color:var(--chalk);}
+.umpgrid{max-width:260px;}
+.umpgrid .zcell{cursor:default;}
+/* the rulebook box, so you can see what he's adding to it or taking away */
+.umpgrid .zcell.inzone{box-shadow:inset 0 0 0 1.5px var(--chalk);}
+.uzn{font-family:'IBM Plex Mono';font-size:10.5px;font-weight:600;color:var(--chalk);}
+.uzn.dim{opacity:.3;font-weight:500;}
 
 .typegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:7px;}
 .tbtn{padding:13px 8px;border-radius:5px;background:var(--raise);border:1.5px solid var(--line);text-align:center;}
@@ -229,6 +243,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .vval{font-family:'IBM Plex Mono';font-size:10px;font-weight:600;line-height:1;}
 .vval.vthin{color:var(--sage);}
 .vinn{font-size:9px;color:var(--sage);letter-spacing:.06em;line-height:1;}
+.panel.live{border-color:var(--dirt);}
+.lrbars{display:flex;flex-direction:column;gap:6px;}
+.lrrow{display:flex;align-items:center;gap:8px;}
+.lrcode{font-family:'Barlow Condensed';font-weight:700;font-size:15px;width:26px;letter-spacing:.03em;}
+.lrtrack{flex:1;height:18px;background:var(--raise);border-radius:3px;overflow:hidden;}
+.lrtrack i{display:block;height:100%;border-radius:3px;}
+.lrpct{font-family:'IBM Plex Mono';font-size:12px;font-weight:600;width:34px;text-align:right;}
+.lrn{font-size:10.5px;color:var(--sage);width:46px;text-align:right;}
 .veloin{background:var(--raise);border:1px solid var(--line);border-radius:4px;padding:7px 9px;color:var(--chalk);font-family:'IBM Plex Mono';font-size:12.5px;width:72px;}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 </style>
@@ -267,6 +289,16 @@ var RES_LABEL={};RESULTS.forEach(function(r){RES_LABEL[r.code]=r.label;});
 var OUTCOMES=[{code:"OUT",label:"Out"},{code:"1B",label:"Single"},{code:"2B",label:"Double"},
  {code:"3B",label:"Triple"},{code:"HR",label:"Home run"},{code:"ROE",label:"Error / FC"}];
 var CONTACT=[{code:"hard",label:"Hard",color:"var(--ok)"},{code:"med",label:"Medium",color:"var(--caution)"},{code:"weak",label:"Weak",color:"var(--bad)"}];
+/* Store the actual field, not "pull" — pull flips with the hitter's hand, and
+   a stored relative value goes wrong the moment a lefty pinch-hits. Derive it. */
+var FIELDS=[{code:"LF",label:"Left"},{code:"CF",label:"Center"},{code:"RF",label:"Right"}];
+var TRAJ=[{code:"GB",label:"Ground"},{code:"LD",label:"Line"},{code:"FB",label:"Fly"}];
+function pullSide(hand){return hand==="L"?"RF":"LF";}
+function oppoSide(hand){return hand==="L"?"LF":"RF";}
+function sprayWord(p){
+ if(!p.dir)return null;
+ if(p.dir==="CF")return "center";
+ return p.dir===pullSide(p.hand)?"pull":"oppo";}
 var IN_ZONE=[6,7,8,11,12,13,16,17,18];
 function inZone(z){return IN_ZONE.indexOf(z)>=0;}
 var COUNTS=["0-0","0-1","0-2","1-0","1-1","1-2","2-0","2-1","2-2","3-0","3-1","3-2"];
@@ -293,12 +325,44 @@ var S={
 function save(){try{localStorage.setItem(STORE,JSON.stringify({games:S.games,activeId:S.activeId}));}
  catch(e){flash("Couldn't save — storage may be full or blocked");}}
 
+/* A pitcher is the same arm across the season even if you typed his name a
+   little differently each time. Match on a normalised key rather than the
+   literal string, but keep it conservative — "J. Smith" and "John Smith" stay
+   separate, because merging two different people is worse than missing a merge. */
+function pkeyOf(n){return String(n==null?"":n).toLowerCase()
+ .replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();}
+
 function migrate(g){
  if(!g.meta.pitchers||!g.meta.pitchers.length)
   g.meta.pitchers=[{id:"pp1",name:g.meta.pitcher,hand:g.meta.hand}];
+ g.meta.pitchers.forEach(function(a){if(!a.key)a.key=pkeyOf(a.name);});
  g.pitches.forEach(function(p){
-  if(!p.pitcher){p.pitcher=g.meta.pitcher;p.phand=g.meta.hand;}});
+  if(!p.pitcher){p.pitcher=g.meta.pitcher;p.phand=g.meta.hand;}
+  if(!p.pkey)p.pkey=pkeyOf(p.pitcher);
+  if(p.dir===undefined)p.dir=null;
+  if(p.traj===undefined)p.traj=null;});
  return g;}
+
+/* The filter stores a key; this turns it back into something readable. */
+function armName(key){
+ if(!key||key==="all")return "";
+ var hit=null;
+ allArms().forEach(function(a){if(a.key===key)hit=a;});
+ return hit?hit.name:key;}
+
+/* Every arm seen this season, folded together by key. */
+function allArms(){
+ var by={};
+ S.games.forEach(function(g){
+  (g.meta.pitchers||[]).forEach(function(a){
+   var k=a.key||pkeyOf(a.name);
+   var thrown=g.pitches.filter(function(p){return p.pkey===k;}).length;
+   if(!by[k])by[k]={key:k,name:a.name,hand:a.hand,games:0,pitches:0};
+   by[k].games++;by[k].pitches+=thrown;
+   if(g.meta.date>=(by[k].lastDate||""))
+    {by[k].name=a.name;by[k].hand=a.hand;by[k].lastDate=g.meta.date;}});});
+ return Object.keys(by).map(function(k){return by[k];})
+  .sort(function(a,b){return b.pitches-a.pitches;});}
 
 function load(){try{var raw=localStorage.getItem(STORE);if(!raw)return;var d=JSON.parse(raw);
  S.games=(d.games||[]).map(migrate);
@@ -505,13 +569,130 @@ function buildVeloTells(ps){
     score:Math.abs(delta)*Math.min(set.length,20)});});});
  return out.sort(function(a,b){return b.score-a.score;}).slice(0,7);}
 
+/* ================= batted balls =================
+   Only in-play pitches where somebody actually recorded it. Everything is
+   reported over that subset, never over all balls in play — otherwise
+   skipping the optional taps would quietly read as "all center field". */
+function battedBalls(ps){
+ var bip=ps.filter(function(p){return p.result==="IP";});
+ var withDir=bip.filter(function(p){return p.dir;});
+ var withTraj=bip.filter(function(p){return p.traj;});
+ function tally(set,get,keys){
+  var c={};keys.forEach(function(k){c[k]=0;});
+  set.forEach(function(p){var v=get(p);if(v!=null&&c[v]!==undefined)c[v]++;});
+  return keys.map(function(k){return{code:k,n:c[k],pct:pc(c[k],set.length)};});}
+ return{
+  bip:bip.length, dirN:withDir.length, trajN:withTraj.length,
+  fields:tally(withDir,function(p){return p.dir;},["LF","CF","RF"]),
+  spray:tally(withDir,sprayWord,["pull","center","oppo"]),
+  traj:tally(withTraj,function(p){return p.traj;},["GB","LD","FB"])};}
+
+/* ================= what he throws here =================
+   The tendency work already exists on the Pitcher tab, but by the time you've
+   navigated there the pitch has been thrown. This answers the same question
+   against the live situation, on the charting screen.
+
+   The exact count is the sharpest read and also the thinnest, so fall back
+   through progressively wider nets and always say which one you landed on —
+   "on 1-2 vs righties" and "with two strikes" are not the same claim. */
+var L_MIN=5;  /* fewest pitches in a bucket before it's worth showing */
+
+function liveReads(L){
+ var a=arm();if(!a)return null;
+ var key=a.key||pkeyOf(a.name);
+ var mine=pitches().filter(function(p){return (p.pkey||pkeyOf(p.pitcher))===key;});
+ if(mine.length<L_MIN)return null;
+ var onBase=L.r1||L.r2||L.r3;
+ var nets=[
+  {label:"on "+L.balls+"-"+L.strikes+" vs "+L.hand+"HH",
+   t:function(p){return p.balls===L.balls&&p.strikes===L.strikes&&p.hand===L.hand;}},
+  {label:"on "+L.balls+"-"+L.strikes,
+   t:function(p){return p.balls===L.balls&&p.strikes===L.strikes;}},
+  {label:L.strikes===2?"with two strikes":L.balls>L.strikes?"when he's behind":
+         L.strikes>L.balls?"when he's ahead":"on even counts",
+   t:function(p){return L.strikes===2?p.strikes===2:
+     L.balls>L.strikes?p.balls>p.strikes:
+     L.strikes>L.balls?p.strikes>p.balls:p.balls===p.strikes;}},
+  {label:onBase?"with runners on":"with the bases empty",
+   t:function(p){var on=p.r1||p.r2||p.r3;return onBase?on:!on;}}
+ ];
+ for(var i=0;i<nets.length;i++){
+  var set=mine.filter(nets[i].t);
+  if(set.length>=L_MIN)
+   return{label:nets[i].label,n:set.length,mix:mix(set).slice(0,3),
+    wide:i>=2,total:mine.length};}
+ return null;}
+
+/* ================= workload =================
+   Pitch count on its own is a blunt number — arms differ. Velocity loss on its
+   own can be one bad gun reading. Together they're worth acting on, which is
+   why the alert only fires when both agree. */
+var W_WATCH=45;  /* enough work that a dip could plausibly be fatigue */
+var W_HIGH=75;   /* deep into an outing by most high-school/college standards */
+
+function armCount(key){
+ return pitches().filter(function(p){return (p.pkey||pkeyOf(p.pitcher))===key;}).length;}
+
+function workload(key){
+ var mine=pitches().filter(function(p){return (p.pkey||pkeyOf(p.pitcher))===key;});
+ var n=mine.length;
+ if(!n)return{n:0};
+ /* biggest dip across his main pitch types, reusing the velocity work */
+ var best=null;
+ veloByType(withVelo(mine)).forEach(function(r){
+  if(r.n<V_MIN)return;
+  var d=veloDip(veloByInning(mine,r.code));
+  if(d&&d.real&&(!best||d.drop>best.drop))
+   best={code:r.code,drop:d.drop,peak:d.peak,last:d.last};});
+ var tired=!!(best&&n>=W_WATCH);
+ return{n:n,dip:best,tired:tired,heavy:n>=W_HIGH};}
+
+/* ================= the umpire =================
+   Only pitches the hitter took tell you anything about the zone — a swing
+   hides the call. Compare what he actually rang up against the nominal box.
+   This is per game and per crew, so it never pools across dates. */
+var U_MIN_TAKEN=14;  /* fewest takes before the map means anything at all */
+var U_CELL=2;        /* fewest takes in one cell before it gets a verdict */
+
+function umpZone(ps){
+ var taken=ps.filter(function(p){return (p.result==="CS"||p.result==="B")&&p.zone!=null;});
+ if(taken.length<U_MIN_TAKEN)return{thin:true,taken:taken.length};
+ var cells=[];
+ for(var i=0;i<25;i++)cells.push({z:i,cs:0,b:0});
+ taken.forEach(function(p){if(p.result==="CS")cells[p.zone].cs++;else cells[p.zone].b++;});
+ var expanded=[],squeezed=[];
+ cells.forEach(function(c){
+  c.n=c.cs+c.b;
+  c.pct=c.n?Math.round(c.cs/c.n*100):null;
+  c.solid=c.n>=U_CELL;
+  if(!c.solid)return;
+  /* called a strike out there more often than not */
+  if(!inZone(c.z)&&c.cs>c.b)expanded.push(c);
+  /* gave the hitter a cell that should have been a strike */
+  if(inZone(c.z)&&c.b>c.cs)squeezed.push(c);});
+ return{thin:false,taken:taken.length,cells:cells,
+  expanded:expanded.sort(function(a,b){return b.cs-a.cs;}),
+  squeezed:squeezed.sort(function(a,b){return b.b-a.b;})};}
+
+/* Turn a grid index into words. Columns run catcher's view: 0 is the
+   third-base side, 4 is the first-base side. Inside/outside depends on who's
+   hitting, so say which side of the plate rather than guessing. */
+function zoneWords(z){
+ var col=z%5, row=Math.floor(z/5);
+ var h=col===0?"way off the 3B side":col===1?"the 3B corner":col===2?"the middle":
+       col===3?"the 1B corner":"way off the 1B side";
+ var v=row===0?"up above the zone":row===1?"up":row===2?"belt-high":
+       row===3?"down":"below the zone";
+ return v+", "+h;}
+
 function pool(){
  var g=game();if(!g)return[];var base;
  if(S.f.scope==="game")base=g.pitches;
  else{base=[];S.games.forEach(function(gg){
   base=base.concat(gg.pitches.map(function(p){var q=clone(p);q.abId=gg.meta.id+"-"+p.abId;return q;}));});}
  return base.filter(function(p){
-  if(S.f.pitcher!=="all"&&p.pitcher!==S.f.pitcher)return false;
+  /* matched on key, so the same arm follows you across games */
+  if(S.f.pitcher!=="all"&&(p.pkey||pkeyOf(p.pitcher))!==S.f.pitcher)return false;
   if(S.f.scope==="all"&&S.f.pitcher==="all")return false;
   if(S.f.hand!=="all"&&p.hand!==S.f.hand)return false;
   if(S.f.run==="on"&&!(p.r1||p.r2||p.r3))return false;
@@ -524,7 +705,7 @@ function createGame(){
  var id="g"+Date.now();
  var rec={meta:{id:id,date:S.form.date,opponent:S.form.opponent.trim(),pitcher:S.form.pitcher.trim(),
   hand:S.form.hand,catcher:S.form.catcher.trim(),roster:[],tells:[],tipsOn:false,
-  pitchers:[{id:"pp"+Date.now(),name:S.form.pitcher.trim(),hand:S.form.hand}]},pitches:[]};
+  pitchers:[{id:"pp"+Date.now(),name:S.form.pitcher.trim(),hand:S.form.hand,key:pkeyOf(S.form.pitcher)}]},pitches:[]};
  S.games.unshift(rec);S.activeId=id;
  S.live={inning:1,outs:0,balls:0,strikes:0,seq:1,hand:"R",r1:false,r2:false,r3:false,abId:1,bIdx:0,pIdx:0};
  S.history=[];S.sel={type:null,zone:null};S.pendingIP=null;S.activeTells=[];
@@ -586,17 +767,18 @@ function moveBat(i,d){
 function addArm(){
  if(!S.newP.name.trim())return;
  var g=game();var nm=S.newP.name.trim();
- var existing=-1;g.meta.pitchers.forEach(function(a,i){if(a.name.toLowerCase()===nm.toLowerCase())existing=i;});
+ var k=pkeyOf(nm);
+ var existing=-1;g.meta.pitchers.forEach(function(a,i){if((a.key||pkeyOf(a.name))===k)existing=i;});
  if(existing>=0){S.live.pIdx=existing;}
- else{g.meta.pitchers.push({id:"pp"+Date.now(),name:nm,hand:S.newP.hand});
+ else{g.meta.pitchers.push({id:"pp"+Date.now(),name:nm,hand:S.newP.hand,key:k});
   S.live.pIdx=g.meta.pitchers.length-1;}
- S.f.pitcher=g.meta.pitchers[S.live.pIdx].name;
+ S.f.pitcher=g.meta.pitchers[S.live.pIdx].key||pkeyOf(g.meta.pitchers[S.live.pIdx].name);
  S.newP={name:"",hand:"R"};S.armOpen=false;save();
  flash(nm+" is in. Tendency views now filtered to him.");}
 
 function pickArm(i){
  var a=arms();if(!a[i])return;
- S.live.pIdx=i;S.f.pitcher=a[i].name;S.armOpen=false;save();}
+ S.live.pIdx=i;S.f.pitcher=a[i].key||pkeyOf(a[i].name);S.armOpen=false;save();}
 
 function removeArm(id){
  var g=game();
@@ -623,8 +805,10 @@ function commit(result,outcome,contact){
   balls:S.live.balls,strikes:S.live.strikes,hand:S.live.hand,
   r1:S.live.r1,r2:S.live.r2,r3:S.live.r3,batter:b?b.name:null,bIdx:S.live.bIdx,
   pitcher:a?a.name:g.meta.pitcher,phand:a?a.hand:g.meta.hand,
+  pkey:pkeyOf(a?a.name:g.meta.pitcher),
   type:S.sel.type,zone:S.sel.zone,velo:S.velo?Number(S.velo):null,
   result:result,outcome:outcome||null,contact:contact||null,
+  dir:S.pendingIP?S.pendingIP.dir:null,traj:S.pendingIP?S.pendingIP.traj:null,
   tells:tipsOn()?S.activeTells.slice():[]});
 
  S.history.push(clone(S.live));
@@ -646,12 +830,12 @@ function undo(){var g=game();if(!g||!g.pitches.length)return;
 function exportCsv(){
  var g=game();if(!g||!g.pitches.length){flash("Nothing to export yet");return;}
  var ts=tells();
- var head="date,opponent,pitcher,pitcher_hand,inning,outs,balls,strikes,ab,pitch_in_ab,batter,batter_hand,r1,r2,r3,pitch_type,zone,in_zone,velo,result,outcome,contact,tells";
+ var head="date,opponent,pitcher,pitcher_hand,inning,outs,balls,strikes,ab,pitch_in_ab,batter,batter_hand,r1,r2,r3,pitch_type,zone,in_zone,velo,result,outcome,contact,field,trajectory,spray,tells";
  var rows=g.pitches.map(function(p){
   var tl=(p.tells||[]).map(function(id){var f=ts.filter(function(t){return t.id===id;})[0];return f?f.label:"";}).join("|");
   return[g.meta.date,g.meta.opponent,p.pitcher,p.phand,p.inning,p.outs,p.balls,p.strikes,p.abId,p.seq,
    p.batter||"",p.hand,p.r1?1:0,p.r2?1:0,p.r3?1:0,p.type,p.zone,inZone(p.zone)?1:0,p.velo==null?"":p.velo,
-   p.result,p.outcome||"",p.contact||"",tl].join(",");});
+   p.result,p.outcome||"",p.contact||"",p.dir||"",p.traj||"",sprayWord(p)||"",tl].join(",");});
  var blob=new Blob([[head].concat(rows).join("\n")],{type:"text/csv"});
  var a=document.createElement("a");a.href=URL.createObjectURL(blob);
  a.download=g.meta.pitcher.replace(/\s+/g,"_")+"_"+g.meta.date+".csv";
@@ -695,10 +879,17 @@ function stat(label,value,sub,warn){
  return '<div class="stat"><div class="sv"'+(warn?' style="color:var(--warn)"':'')+'>'+value+'</div><div class="sl">'+label+'</div>'+(sub?'<div class="ss">'+sub+'</div>':'')+'</div>';}
 
 function pitcherFilterRow(){
- var a=arms();if(a.length<2&&S.f.scope==="game")return "";
+ /* In this game: just the arms that appeared. Across the season: every arm
+    you've charted, so you can pull up a guy you faced back in April. */
+ var list=S.f.scope==="game"
+  ? arms().map(function(x){return{key:x.key||pkeyOf(x.name),name:x.name,games:1};})
+  : allArms();
+ if(list.length<2&&S.f.scope==="game")return "";
  return '<div class="filters"><span class="flabel">Pitcher</span>'+
   (S.f.scope==="game"?'<button class="chip'+(S.f.pitcher==="all"?" on":"")+'" data-a="fpitch" data-v="all">All in this game</button>':"")+
-  a.map(function(x){return '<button class="chip'+(S.f.pitcher===x.name?" on":"")+'" data-a="fpitch" data-v="'+esc(x.name)+'">'+esc(x.name)+'</button>';}).join("")+'</div>';}
+  list.map(function(x){
+   return '<button class="chip'+(S.f.pitcher===x.key?" on":"")+'" data-a="fpitch" data-v="'+esc(x.key)+'">'+
+    esc(x.name)+(x.games>1?' <em style="font-style:normal;opacity:.55">&times;'+x.games+'</em>':'')+'</button>';}).join("")+'</div>';}
 
 /* ================= views ================= */
 function viewChart(){
@@ -717,9 +908,17 @@ function viewChart(){
  h+='<div class="panel"><h3 class="ptitle">Situation</h3>';
 
  /* pitcher bar */
+ var wl=a?workload(a.key||pkeyOf(a.name)):{n:0};
  h+='<div class="bar arm"><div class="who"><div class="slot">On the mound &middot; '+(a?a.hand:"?")+'HP</div>'+
   '<div class="nm">'+esc(a?a.name:"—")+'</div></div>'+
+  '<span class="pcount'+(wl.heavy?" hot":"")+'" title="Pitches thrown in this game">'+wl.n+'<em>P</em></span>'+
   '<button class="tiny" data-a="armopen">Change</button></div>';
+ /* Only speaks up when the count and the radar agree. Either one alone is
+    too easy to over-read, and a false "he's done" costs you an at-bat. */
+ if(wl.tired)
+  h+='<div class="fatigue"><div class="fnum">'+v1(wl.dip.drop)+'</div>'+
+   '<div class="ftxt">Off his peak on the <b>'+(TYPE_MAP[wl.dip.code]?TYPE_MAP[wl.dip.code].label.toLowerCase():wl.dip.code)+'</b>, at <b>'+wl.n+' pitches</b>'+
+   '<em>'+v1(wl.dip.peak.avg)+' in the '+ord(wl.dip.peak.inning)+', '+v1(wl.dip.last.avg)+' in the '+ord(wl.dip.last.inning)+'. Count and radar agree — he may be near done.</em></div></div>';
 
  if(S.armOpen){
   h+='<div class="subpanel"><div class="sl">Bring in a new pitcher</div>';
@@ -764,6 +963,20 @@ function viewChart(){
    'data-in="velo" value="'+esc(S.velo)+'">'+
   '<button class="chip" data-a="resetcount">Reset count</button></div></div>';
 
+ /* your own scouting, at the moment you can still use it */
+ var lr=liveReads(L);
+ if(lr){
+  h+='<div class="panel live"><h3 class="ptitle">What he throws here <span class="aside">'+
+   esc(lr.label)+'</span></h3><div class="lrbars">'+
+   lr.mix.map(function(m){
+    return '<div class="lrrow"><span class="lrcode" style="color:'+colorOf(m.code)+'">'+m.code+'</span>'+
+     '<span class="lrtrack"><i style="width:'+m.pct+'%;background:'+colorOf(m.code)+'"></i></span>'+
+     '<span class="lrpct">'+m.pct+'%</span><span class="lrn">'+m.n+' of '+lr.n+'</span></div>';}).join("")+
+   '</div>'+
+   (lr.wide?'<p class="note">Not enough on this exact count yet — this is the wider bucket.</p>'
+          :(lr.n<8?'<p class="note">Thin sample. Read it as a lean, not a rule.</p>':''))+
+   '</div>';}
+
  h+='<div class="panel"><h3 class="ptitle">2 &middot; Where it finished</h3><div class="zonewrap">'+
   '<div class="zonelabels"><span>3B SIDE</span><span>CATCHER\'S VIEW</span><span>1B SIDE</span></div><div class="zone">';
  for(var i=0;i<25;i++){
@@ -782,6 +995,19 @@ function viewChart(){
   h+='<div class="panel" style="border-color:var(--dirt)"><h3 class="ptitle">Ball in play — how\'d it end?'+
    '<button class="chip sm" data-a="ipcancel">Cancel</button></h3><p class="hint">Result</p><div class="resgrid" style="margin-bottom:11px">'+
    OUTCOMES.map(function(o){return '<button class="rbtn'+(S.pendingIP.outcome===o.code?" sel":"")+'" data-a="ipout" data-v="'+o.code+'">'+o.label+'</button>';}).join("")+
+   '</div>'+
+   /* Optional on purpose. Two extra taps per ball in play is a real cost when
+      you're keeping up with a game — skipping just leaves the field blank. */
+   '<p class="hint">Where it went <span style="opacity:.65">— optional, skip it if you\'re behind</span></p>'+
+   '<div class="resgrid" style="margin-bottom:9px">'+
+   FIELDS.map(function(f){
+    var on=S.pendingIP.dir===f.code;
+    var rel=b?(f.code==="CF"?"":f.code===pullSide(b.hand)?" (pull)":" (oppo)"):"";
+    return '<button class="rbtn'+(on?" sel":"")+'" data-a="ipdir" data-v="'+f.code+'">'+f.label+
+     '<span style="opacity:.55;font-size:10.5px">'+rel+'</span></button>';}).join("")+
+   '</div><div class="resgrid" style="margin-bottom:11px">'+
+   TRAJ.map(function(t){
+    return '<button class="rbtn'+(S.pendingIP.traj===t.code?" sel":"")+'" data-a="iptraj" data-v="'+t.code+'">'+t.label+'</button>';}).join("")+
    '</div><p class="hint">Contact — saves the pitch</p><div class="resgrid">'+
    CONTACT.map(function(c){return '<button class="rbtn" '+(S.pendingIP.outcome?'style="border-color:'+c.color+';color:'+c.color+'"':'disabled')+' data-a="ipcommit" data-v="'+c.code+'">'+c.label+'</button>';}).join("")+
    '</div></div>';
@@ -892,7 +1118,7 @@ function viewPitcher(){
 
  var keys=buildKeys(P);
  h+='<div class="panel sec"><h3 class="ptitle">Keys — strongest tendencies right now'+
-  (S.f.pitcher!=="all"?'<span class="aside">'+esc(S.f.pitcher)+'</span>':'')+'</h3>';
+  (S.f.pitcher!=="all"?'<span class="aside">'+esc(armName(S.f.pitcher))+'</span>':'')+'</h3>';
  if(!keys.length)h+='<div class="empty-inline">Nothing here yet that differs from what he does the rest of the time. He\'s mixing, or there isn\'t enough sample.</div>';
  else h+='<div class="keylist">'+keys.map(function(k){
   var lbl=TYPE_MAP[k.type]?TYPE_MAP[k.type].label:k.type;
@@ -902,6 +1128,54 @@ function viewPitcher(){
    ' &middot; <span style="color:var(--dirt)">+'+Math.round(k.lift)+'</span>'+(k.thin?' &middot; thin sample':'')+'</em></div></div>';}).join("")+'</div>';
  if(S.f.pitcher==="all"&&arms().length>1)
   h+='<p class="note danger" style="color:var(--warn)">You\'re looking at '+arms().length+' pitchers blended together. Pick one above.</p>';
+ h+='</div>';
+
+ var bb=battedBalls(P);
+ if(bb.dirN>=4||bb.trajN>=4){
+  h+='<div class="panel sec"><h3 class="ptitle">Contact he gives up <span class="aside">'+
+   bb.bip+' in play'+(bb.dirN<bb.bip||bb.trajN<bb.bip?' &middot; not all logged':'')+'</span></h3>';
+  if(bb.trajN>=4){
+   h+='<p class="hint">Trajectory <b>'+bb.trajN+' logged</b></p><div class="mixbar">'+
+    bb.traj.map(function(t){return '<div class="mixseg" style="width:'+t.pct+'%;background:'+
+     (t.code==="GB"?"var(--pt-CH)":t.code==="LD"?"var(--pt-CT)":"var(--pt-SL)")+'"></div>';}).join("")+
+    '</div><div class="mixlegend">'+bb.traj.map(function(t){
+     return '<span class="legitem"><i style="background:'+(t.code==="GB"?"var(--pt-CH)":t.code==="LD"?"var(--pt-CT)":"var(--pt-SL)")+'"></i>'+
+      t.code+' '+t.pct+'% <em>('+t.n+')</em></span>';}).join("")+'</div>';}
+  if(bb.dirN>=4){
+   h+='<p class="hint" style="margin-top:11px">Direction <b>'+bb.dirN+' logged</b></p><div class="statrow">'+
+    bb.spray.map(function(s){return stat(s.code,s.pct+"%",s.n+" of "+bb.dirN);}).join("")+'</div>';}
+  h+='</div>';}
+
+ /* The umpire is a property of today, not of this pitcher — so it always reads
+    the whole game and ignores the pitcher and scope filters above. */
+ var uz=umpZone(pitches());
+ h+='<div class="panel sec"><h3 class="ptitle">Today\'s zone <span class="aside">'+
+  (uz.thin?uz.taken+' taken so far':uz.taken+' pitches taken')+'</span></h3>';
+ if(uz.thin){
+  h+='<div class="empty-inline">Needs about '+U_MIN_TAKEN+' taken pitches before the umpire\'s zone shows up. Swings tell you nothing about how he\'s calling it.</div>';
+ }else{
+  h+='<div class="zonewrap"><div class="zonelabels"><span>3B SIDE</span><span>CATCHER\'S VIEW</span><span>1B SIDE</span></div><div class="zone umpgrid">';
+  uz.cells.forEach(function(c){
+   var cls="zcell"+(inZone(c.z)?" inzone":"");
+   var st="",lab="";
+   if(c.solid){
+    if(c.pct>=50){st=';background:color-mix(in srgb,var(--ok) '+(18+c.pct*0.5)+'%,transparent)';}
+    else{st=';background:color-mix(in srgb,var(--bad) '+(18+(100-c.pct)*0.5)+'%,transparent)';}
+    lab='<span class="uzn">'+c.pct+'</span>';}
+   else if(c.n)lab='<span class="uzn dim">'+c.n+'</span>';
+   h+='<div class="'+cls+'" style="display:flex;align-items:center;justify-content:center'+st+'" title="'+
+    (c.n?zoneWords(c.z)+' — '+c.cs+' strike'+(c.cs===1?'':'s')+', '+c.b+' ball'+(c.b===1?'':'s'):'no takes here')+'">'+lab+'</div>';});
+  h+='</div><p class="hint" style="margin-top:8px">Green = he\'s calling it a strike. Red = he isn\'t. Numbers are strike rate; faint numbers are raw takes in cells too thin to judge.</p></div>';
+
+  var notes=[];
+  uz.expanded.slice(0,2).forEach(function(c){
+   notes.push('He\'s giving <b>'+zoneWords(c.z)+'</b> — called a strike '+c.cs+' of '+c.n+' times out there.');});
+  uz.squeezed.slice(0,2).forEach(function(c){
+   notes.push('He\'s <b>not</b> giving '+zoneWords(c.z)+' — ball on '+c.b+' of '+c.n+', even though it\'s in the box.');});
+  if(notes.length)h+='<div class="keylist" style="margin-top:11px">'+notes.map(function(n){
+   return '<div class="key" style="border-left-color:var(--dirt)"><div class="ktxt">'+n+'</div></div>';}).join("")+'</div>';
+  else h+='<p class="note">Nothing unusual yet — he\'s calling close to the book.</p>';
+  h+='<p class="note">Sides are catcher\'s view, so "3B side" is outside to a righty and inside to a lefty.</p>';}
  h+='</div>';
 
  if(tipsOn()){
@@ -952,7 +1226,7 @@ function viewHitters(){
  if(P.length<8)return h+'<div class="empty">Not enough charted yet.<br>Hitter splits need a couple of innings before they mean anything.</div>';
 
  var T=split(P);
- h+='<div class="panel sec"><h3 class="ptitle">Team, against '+(S.f.pitcher==="all"?"this staff":esc(S.f.pitcher))+' <span class="aside">'+P.length+' pitches seen</span></h3><div class="statrow">'+
+ h+='<div class="panel sec"><h3 class="ptitle">Team, against '+(S.f.pitcher==="all"?"this staff":esc(armName(S.f.pitcher)))+' <span class="aside">'+P.length+' pitches seen</span></h3><div class="statrow">'+
   stat("Swing rate",T.swingPct+"%",T.swings+" swings")+
   stat("Whiff / swing",T.whiffPct+"%","",T.whiffPct>=30)+
   stat("Chase rate",T.chasePct+"%",T.ozSeen+" out of zone",T.chasePct>=35)+
@@ -978,7 +1252,7 @@ function viewHitters(){
   /* a percentage with two or three events behind it is noise dressed as a number —
      show the raw counts instead until there's enough to divide by */
   var thinAny=false;
-  h+='<div class="tblwrap"><table class="htable"><thead><tr><th>Hitter</th><th>Pitches</th><th>Swing</th><th>Whiff</th><th>Chase</th><th>Hard</th><th>Hits</th><th>Trouble pitch</th></tr></thead><tbody>'+
+  h+='<div class="tblwrap"><table class="htable"><thead><tr><th>Hitter</th><th>Pitches</th><th>Swing</th><th>Whiff</th><th>Chase</th><th>Hard</th><th>Hits</th><th>Trouble pitch</th><th>Sprays</th></tr></thead><tbody>'+
    rows.map(function(r){
     var worst=PITCH_TYPES.map(function(t){return{t:t,s:split(r.pitches.filter(function(p){return p.type===t.code;}))};})
      .filter(function(x){return x.s.swings>=4;}).sort(function(a,b){return b.s.whiffPct-a.s.whiffPct;})[0];
@@ -990,7 +1264,12 @@ function viewHitters(){
      '<td'+(r.swings>=4?(r.whiffPct>=35?' style="color:var(--warn)"':''):dim)+'>'+(r.swings>=4?r.whiffPct+"%":"&mdash;")+'</td>'+
      '<td'+(r.ozSeen>=4?(r.chasePct>=40?' style="color:var(--warn)"':''):dim)+'>'+(r.ozSeen>=4?r.chasePct+"%":"&mdash;")+'</td>'+
      '<td'+(r.bip>=3?'':dim)+'>'+(r.bip>=3?r.hardPct+"%":"&mdash;")+'</td><td>'+r.hits+'</td>'+
-     '<td class="txt">'+(worst&&worst.s.whiffPct>=40?'<span style="color:'+worst.t.color+'">'+worst.t.label+' &middot; '+worst.s.whiffPct+'% whiff</span>':'<span style="color:var(--sage)">&mdash;</span>')+'</td></tr>';}).join("")+
+     '<td class="txt">'+(worst&&worst.s.whiffPct>=40?'<span style="color:'+worst.t.color+'">'+worst.t.label+' &middot; '+worst.s.whiffPct+'% whiff</span>':'<span style="color:var(--sage)">&mdash;</span>')+'</td>'+
+     '<td class="txt">'+(function(){
+      var bb=battedBalls(r.pitches);
+      if(bb.dirN<3)return '<span style="color:var(--sage)">&mdash;</span>';
+      var top=bb.spray.slice().sort(function(a,b){return b.n-a.n;})[0];
+      return top.n?esc(top.code)+' <span style="color:var(--sage);font-size:11px">'+top.n+'/'+bb.dirN+'</span>':'<span style="color:var(--sage)">&mdash;</span>';})()+'</td></tr>';}).join("")+
    '</tbody></table></div>';
   if(thinAny)h+='<p class="note danger" style="color:var(--warn)">Rows marked thin haven\'t seen enough pitches for the rates to mean anything. Switch to "All games, this pitcher" or wait for the season to fill in.</p>';}
  h+='<p class="note">Whiff is per swing, chase is swings at pitches outside the zone. A dash means the sample is too small to divide — it fills in as the count grows. A pinch hitter shows as his own row; the guy he replaced keeps his earlier at-bats. "Trouble pitch" needs four swings at that pitch and 40%+ misses, so treat it as a place to look, not a verdict.</p></div>';
@@ -1096,8 +1375,10 @@ document.addEventListener("click",function(e){
  else if(a==="type")S.sel.type=v;
  else if(a==="zone")S.sel.zone=+v;
  else if(a==="res"){if(!(S.sel.type&&S.sel.zone!=null))return;
-  if(v==="IP")S.pendingIP={outcome:null};else commit(v,null,null);}
+  if(v==="IP")S.pendingIP={outcome:null,dir:null,traj:null};else commit(v,null,null);}
  else if(a==="ipout")S.pendingIP.outcome=v;
+ else if(a==="ipdir")S.pendingIP.dir=(S.pendingIP.dir===v?null:v);
+ else if(a==="iptraj")S.pendingIP.traj=(S.pendingIP.traj===v?null:v);
  else if(a==="ipcommit"){if(!S.pendingIP.outcome)return;commit("IP",S.pendingIP.outcome,v);}
  else if(a==="ipcancel")S.pendingIP=null;
  else if(a==="tell"){var i=S.activeTells.indexOf(v);if(i>=0)S.activeTells.splice(i,1);else S.activeTells.push(v);}
@@ -1138,7 +1419,7 @@ document.addEventListener("click",function(e){
  else if(a==="delgame")deleteGame(v);
  else if(a==="clearpitches")clearPitches();
  else if(a==="fscope"){S.f.scope=v;
-  if(v==="all"&&S.f.pitcher==="all"){var cur=arm();if(cur)S.f.pitcher=cur.name;}}
+  if(v==="all"&&S.f.pitcher==="all"){var cur=arm();if(cur)S.f.pitcher=cur.key||pkeyOf(cur.name);}}
  else if(a==="fpitch")S.f.pitcher=v;
  else if(a==="fhand")S.f.hand=v;
  else if(a==="frun")S.f.run=v;
