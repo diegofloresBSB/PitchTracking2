@@ -828,9 +828,13 @@ function veloPanel(P){
   h+='<p class="note">Rows under '+V_MIN+' readings are too thin to average — treat them as a single data point.</p>';
 
  /* fatigue read — the top few types by volume that span more than one inning */
+ /* A trend needs at least two innings that stand on their own. Four innings of
+    one pitch each will draw a tidy descending staircase out of pure scatter,
+    and dimming the bars isn't a strong enough warning against reading it. */
  var trends=rows.filter(function(r){return r.n>=V_MIN;}).slice(0,3).map(function(r){
   return{code:r.code,rows:veloByInning(vs,r.code)};})
-  .filter(function(t){return t.rows.length>=2;});
+  .filter(function(t){
+   return t.rows.filter(function(r){return r.n>=V_MIN;}).length>=2;});
 
  if(trends.length){
   h+='<div style="margin-top:13px"><div class="sl" style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--sage);margin-bottom:8px">Inning by inning</div>';
